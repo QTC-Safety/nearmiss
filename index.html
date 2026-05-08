@@ -432,15 +432,14 @@
     // =========================================================
     // นำลิงก์ Web App จาก Google Apps Script มาวางแทนที่ตรงนี้
     // =========================================================
-    const API_URL = "https://script.google.com/macros/s/AKfycbzeOZoVUrqjk8xY9ib0lJisQFyTsKC_BiBLrEKmSpTnswqdQonyILYb6muU6ripn-HJ/exec";
+    const API_URL = "วาง_URL_WEB_APP_ที่นี่";
 
     Chart.register(ChartDataLabels);
 
     let user = null; let currentSection = 'dashboard'; let reportCache = []; let departmentList = [];
     let doughnutChart = null; let barChart = null; let severityChart = null;
     let imagePayloads = {};
-    let allReportsCurrentPage = 1;
-    const allReportsPerPage = 10;
+
     // ฟังก์ชันเชื่อมโยงหน้าบ้านและหลังบ้านด้วย Fetch API
     async function callAPI(action, payload = {}) {
       try {
@@ -490,12 +489,12 @@
     });
 
     function getDirectImageUrl(url) {
-  if (!url || String(url).trim() === "" || url === "null" || url === "undefined") return ''; 
-  if (String(url).toLowerCase().includes("appsheet.com")) return url;
-  const match = String(url).match(/[-\w]{25,}/);
-  if (match) return 'https://drive.google.com/thumbnail?id=' + match[0] + '&sz=w800';
-  return url;
-}
+        if (!url || String(url).trim() === "") return '';
+        if (String(url).toLowerCase().includes("appsheet.com")) return url;
+        const match = String(url).match(/[-\w]{25,}/);
+        if (match) return 'https://drive.google.com/thumbnail?id=' + match[0] + '&sz=w800';
+        return url;
+    }
 
     function toggleLoader(show) {
       const loader = document.getElementById('loader');
@@ -794,48 +793,14 @@
     }
 
     async function loadMyReports(hideLoaderAfter = true) {
-  // เพิ่มบรรทัดนี้เพื่อป้องกัน Error เมื่อ user เป็น null
-  if (!user) return; 
-
-  try {
-    const data = await callAPI('getReportData');
-    reportCache = data || [];
-    
-    // เรียงจาก ReportID ล่าสุด หรือจะใช้ sort จากวันที่ก็ได้
-    const myData = reportCache
-      .filter(r => String(r[3]).trim() === String(user.empId).trim())
-      .sort((a, b) => (parseInt(String(b[0]).replace(/\D/g, '')) || 0) - (parseInt(String(a[0]).replace(/\D/g, '')) || 0));
-    
-    const tbody = document.getElementById('myTable');
-    const empty = document.getElementById('myEmpty');
-    
-    if (!tbody || !empty) return;
-
-    if (myData.length === 0) {
-      tbody.innerHTML = '';
-      empty.classList.remove('hidden');
-    } else {
-      empty.classList.add('hidden');
-      tbody.innerHTML = myData.map(r => {
-        let imgUrl = getDirectImageUrl(r[12]);
-        let pImg = imgUrl ? '<img src="' + imgUrl + '" referrerpolicy="no-referrer" class="w-12 h-12 object-cover rounded shadow-sm cursor-pointer hover:opacity-80" onclick="window.open(\''+imgUrl+'\',\'_blank\')" onerror="this.style.display=\'none\'" alt="รูป">' : '-';
-        return `
-          <tr class="hover:bg-gray-50 transition border-b border-gray-100">
-            <td class="p-4 whitespace-nowrap text-gray-700 font-medium">${r[1] ? r[1].substring(0,10) : '-'}</td>
-            <td class="p-4 flex justify-center">${pImg}</td>
-            <td class="p-4 text-center text-gray-600">Q${r[16]}</td>
-            <td class="p-4 text-center"><button onclick="showDetails('${r[0]}')" class="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-sm hover:bg-blue-200 transition font-medium"><i class="fas fa-search"></i> ดู</button></td>
-            <td class="p-4">${getStatusBadge(r[2])}</td>
-          </tr>
-        `;
-      }).join('');
+      try {
+        const data = await callAPI('getReportData');
+        reportCache = data || []; const myData = reportCache.filter(r => String(r[3]).trim() === String(user.empId).trim()).sort((a, b) => (parseInt(String(b[0]).replace(/\D/g, '')) || 0) - (parseInt(String(a[0]).replace(/\D/g, '')) || 0));
+        const tbody = document.getElementById('myTable'); const empty = document.getElementById('myEmpty');
+        if (myData.length === 0) { tbody.innerHTML = ''; empty.classList.remove('hidden'); } else { empty.classList.add('hidden'); tbody.innerHTML = myData.map(r => { let imgUrl = getDirectImageUrl(r[12]); let pImg = imgUrl ? '<img src="' + imgUrl + '" referrerpolicy="no-referrer" class="w-12 h-12 object-cover rounded shadow-sm mx-auto border border-gray-200" alt="รูป">' : '-'; return `<tr class="hover:bg-blue-50 transition cursor-pointer" onclick="showDetails('${r[0]}')"><td class="p-4">${fDate(r[1])}</td><td class="p-4 text-center">${pImg}</td><td class="p-4 text-center"><span class="bg-gray-100 px-2 py-1 rounded-md font-medium text-gray-600">Q${r[16]}</span></td><td class="p-4">${getStatusBadge(r[2])}</td><td class="p-4 text-center text-blue-500 hover:text-blue-700 font-bold"><i class="fas fa-search"></i></td></tr>` }).join(''); }
+      } catch(e) { console.error(e); }
+      if (hideLoaderAfter) toggleLoader(false);
     }
-    if(hideLoaderAfter) toggleLoader(false);
-  } catch (err) {
-    if(hideLoaderAfter) toggleLoader(false);
-    console.error("loadMyReports Error:", err);
-  }
-}
 
     async function loadDeptTasks(hideLoaderAfter = true) {
       const userDepts = user.dept.split(",").map(d => d.trim()).filter(d => d !== "");
@@ -922,122 +887,23 @@
       } catch(e) { console.error(e); }
       if (hideLoaderAfter) toggleLoader(false);
     }
-function changeAllReportsPage(direction) {
-  allReportsCurrentPage += direction;
-  renderAllReports();
-  // เลื่อนหน้าจอกลับไปด้านบนของส่วนแสดงผล
-  const container = document.getElementById('allReportsList');
-  if (container) container.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
+
     function renderAllReports() {
-  const container = document.getElementById('allReportsList');
-  if (!container) return;
+        const tbody = document.getElementById('allReportsTable'); const startDate = document.getElementById('filterStartDate').value; const endDate = document.getElementById('filterEndDate').value; const selectedDepts = Array.from(document.querySelectorAll('.dept-checkbox:checked')).map(cb => cb.value); const selectedStatuses = Array.from(document.querySelectorAll('.status-checkbox:checked')).map(cb => cb.value);
 
-  // อ่านค่าจาก Filter
-  const sDate = document.getElementById('filterStartDate')?.value;
-  const eDate = document.getElementById('filterEndDate')?.value;
-  
-  // จัดการ Filter หมวดหมู่ (Checkbox)
-  const checkedDepts = Array.from(document.querySelectorAll('.dept-checkbox:checked')).map(cb => cb.value);
-  const checkedStatuses = Array.from(document.querySelectorAll('.status-checkbox:checked')).map(cb => cb.value);
+        let filtered = reportCache.filter(r => { let match = true; let rDateStr = parseDateForInput(r[1]); if (startDate && rDateStr < startDate) match = false; if (endDate && rDateStr > endDate) match = false; let rDept = String(r[15]).trim() || 'ยังไม่ระบุส่วนงานแก้ไข'; if (selectedDepts.length > 0 && !selectedDepts.includes(rDept)) match = false; let rStatus = String(r[2]).trim(); if (selectedStatuses.length > 0 && !selectedStatuses.includes(rStatus)) match = false; return match; });
 
-  // กรองข้อมูล
-  let filtered = reportCache.filter(r => {
-    const rDateStr = r[1] ? r[1].substring(0, 10) : '';
-    const rDept = String(r[5]).trim();
-    const rStatus = String(r[2]).trim();
-    
-    let passDate = true;
-    if (sDate && eDate) passDate = (rDateStr >= sDate && rDateStr <= eDate);
-    else if (sDate) passDate = (rDateStr >= sDate);
-    else if (eDate) passDate = (rDateStr <= eDate);
+        if (filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-gray-500 font-medium">ไม่มีข้อมูลรายงานที่ตรงกับตัวกรองของคุณ</td></tr>'; return; }
+        const sorted = [...filtered].sort((a, b) => { const timeA = parseInt(String(a[0]).replace(/\D/g, '')) || 0; const timeB = parseInt(String(b[0]).replace(/\D/g, '')) || 0; return timeB - timeA; });
+        
+        let grouped = {}; sorted.forEach(r => { let dept = r[15] || 'ยังไม่ระบุส่วนงานแก้ไข'; if(!grouped[dept]) grouped[dept] = []; grouped[dept].push(r); });
+        let html = '';
+        for (let dept in grouped) {
+            html += `<tr class="bg-gray-100 border-y border-gray-300"><td colspan="6" class="p-3 font-bold text-blue-900 border-l-4 border-blue-600"><i class="fas fa-building text-blue-700 mr-2"></i>ส่วนงานรับผิดชอบการแก้ไข: ${dept} <span class="ml-2 text-sm text-gray-500 font-medium">(${grouped[dept].length} เรื่อง)</span></td></tr>`;
+            html += grouped[dept].map(r => { let imgUrl = getDirectImageUrl(r[12]); let tImg = imgUrl ? `<a href="${r[12]}" target="_blank"><img src="${imgUrl}" referrerpolicy="no-referrer" class="w-10 h-10 object-cover rounded shadow-sm mx-auto cursor-pointer hover:opacity-80 border border-gray-200" alt="รูป"></a>` : '-'; let editBtn = user.role === 'admin' ? `<button onclick="openEditModal('${r[0]}')" class="text-amber-500 hover:text-amber-700" title="แก้ไขข้อมูลโดย Admin"><i class="fas fa-edit fa-lg"></i></button>` : ''; return `<tr class="hover:bg-blue-50 transition"><td class="p-3 text-sm">${r[0]}</td><td class="p-3 text-sm">${fDate(r[1])}</td><td class="p-3 text-sm">${r[4]}<br><span class="text-xs text-gray-500">${r[5]}</span></td><td class="p-3 text-center text-sm">${tImg}</td><td class="p-3 text-sm">${getStatusBadge(r[2])}</td><td class="p-3 text-center"><button onclick="showDetails('${r[0]}')" class="text-blue-500 hover:text-blue-700 ${user.role === 'admin' ? 'mr-3' : ''}" title="ดูข้อมูล"><i class="fas fa-eye fa-lg"></i></button>${editBtn}</td></tr>`; }).join('');
+        } tbody.innerHTML = html;
+    }
 
-    let passDept = true;
-    if (checkedDepts.length > 0) passDept = checkedDepts.includes(rDept);
-
-    let passStatus = true;
-    if (checkedStatuses.length > 0) passStatus = checkedStatuses.includes(rStatus);
-
-    return passDate && passDept && passStatus;
-  });
-
-  // เรียงลำดับจากวันที่ล่าสุดไปเก่า
-  filtered.sort((a, b) => {
-    let dateA = new Date(a[1]);
-    let dateB = new Date(b[1]);
-    return dateB - dateA; // ล่าสุดขึ้นก่อน
-  });
-
-  // คำนวณระบบหน้า (Pagination)
-  const totalRows = filtered.length;
-  const totalPages = Math.ceil(totalRows / allReportsPerPage) || 1;
-
-  if (allReportsCurrentPage < 1) allReportsCurrentPage = 1;
-  if (allReportsCurrentPage > totalPages) allReportsCurrentPage = totalPages;
-
-  const startIndex = (allReportsCurrentPage - 1) * allReportsPerPage;
-  const endIndex = startIndex + allReportsPerPage;
-  const paginatedData = filtered.slice(startIndex, endIndex);
-
-  // วาดหน้าจอ
-  if (paginatedData.length === 0) {
-    container.innerHTML = '<div class="text-center text-gray-500 py-10 bg-white rounded-xl shadow-sm border border-gray-200"><i class="fas fa-folder-open text-4xl mb-3"></i><p>ไม่พบข้อมูลตามเงื่อนไขที่ค้นหา</p></div>';
-    return;
-  }
-
-  let html = `<div class="space-y-4">`;
-
-  paginatedData.forEach(r => {
-    let imgUrl = getDirectImageUrl(r[12]);
-    let pImg = imgUrl ? `<img src="${imgUrl}" referrerpolicy="no-referrer" class="w-16 h-16 object-cover rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:opacity-80" onclick="window.open('${imgUrl}','_blank')" onerror="this.style.display='none'" alt="รูป">` : `<div class="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs border border-gray-200">ไม่มีรูป</div>`;
-    
-    html += `
-      <div class="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-gray-200 flex flex-col sm:flex-row gap-4 hover:shadow-md transition">
-        <div class="flex-shrink-0 flex justify-center sm:block">
-          ${pImg}
-        </div>
-        <div class="flex-1">
-          <div class="flex flex-wrap justify-between items-start gap-2 mb-2">
-            <div>
-               <h4 class="font-bold text-gray-800 text-lg">${r[7]} <span class="text-xs font-normal text-gray-500 ml-2"><i class="far fa-calendar-alt"></i> ${r[1] ? r[1].substring(0,10) : '-'}</span></h4>
-               <p class="text-sm text-gray-600 mt-1"><i class="fas fa-map-marker-alt text-red-500 w-4"></i> ${r[6]}</p>
-               <p class="text-sm text-gray-600"><i class="fas fa-user text-blue-500 w-4"></i> ${r[4]} (${r[5]})</p>
-            </div>
-            <div class="text-right">
-               <div class="mb-2">${getStatusBadge(r[2])}</div>
-               ${getSeverityBadge(r[8])}
-            </div>
-          </div>
-          <div class="mt-3 pt-3 border-t border-gray-100 flex justify-between items-center">
-            <span class="text-xs text-gray-500">ID: ${r[0]}</span>
-            <button onclick="showDetails('${r[0]}')" class="text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1">
-              <i class="fas fa-info-circle"></i> ดูรายละเอียด
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
-  });
-
-  html += `</div>`;
-
-  // สร้างส่วนควบคุมปุ่ม Pagination
-  if (totalRows > allReportsPerPage) {
-    html += `
-      <div class="flex justify-between items-center mt-6 bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-gray-200">
-          <button onclick="changeAllReportsPage(-1)" ${allReportsCurrentPage === 1 ? 'disabled class="px-3 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed text-sm font-medium"' : 'class="px-3 py-2 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg transition text-sm font-medium"'}>
-              <i class="fas fa-chevron-left mr-1"></i> ย้อนกลับ
-          </button>
-          <span class="text-gray-700 font-medium text-sm">หน้า ${allReportsCurrentPage} จาก ${totalPages} <span class="text-gray-400 ml-1">(${totalRows} รายการ)</span></span>
-          <button onclick="changeAllReportsPage(1)" ${allReportsCurrentPage === totalPages ? 'disabled class="px-3 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed text-sm font-medium"' : 'class="px-3 py-2 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg transition text-sm font-medium"'}>
-              ถัดไป <i class="fas fa-chevron-right ml-1"></i>
-          </button>
-      </div>
-    `;
-  }
-
-  container.innerHTML = html;
-}
     function resetAllReportsFilters() { document.getElementById('filterStartDate').value = ''; document.getElementById('filterEndDate').value = ''; document.querySelectorAll('.dept-checkbox').forEach(cb => cb.checked = false); document.querySelectorAll('.status-checkbox').forEach(cb => cb.checked = false); updateDropdownLabel('dept-checkbox', 'deptDropdownLabel'); updateDropdownLabel('status-checkbox', 'statusDropdownLabel'); renderAllReports(); }
 
     function openEditModal(id) { const r = reportCache.find(x => x[0] === id); if (!r) return; document.getElementById('e_reportId').value = r[0]; document.getElementById('e_date').value = parseDateForInput(r[1]); document.getElementById('e_location').value = r[6]; document.getElementById('e_topic').value = r[7]; document.getElementById('e_severity').value = r[8]; document.getElementById('e_type').value = r[9]; document.getElementById('e_desc').value = r[10]; document.getElementById('e_participation').value = r[11]; document.getElementById('e_isFixed').value = r[13]; toggleFixFields('edit'); if (r[13] === 'แก้ไขแล้ว') { document.getElementById('fixMethod_edit').value = r[20]; document.getElementById('fixDate_edit').value = parseDateForInput(r[21]); } document.getElementById('editModalOverlay').classList.remove('hidden'); document.getElementById('editModalOverlay').classList.add('flex'); }
