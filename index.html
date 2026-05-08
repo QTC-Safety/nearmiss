@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <title>Near Miss & Hazard Point Report</title>
+  <style>
+    body { font-family: 'Kanit', sans-serif; -webkit-tap-highlight-color: transparent; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  </style>
+</head>
+<body class="bg-slate-50 text-gray-800">
+
+  <div id="loader" class="fixed inset-0 bg-white/80 z-[9999] hidden flex justify-center items-center">
+    <div class="animate-spin rounded-full h-14 w-14 border-t-4 border-blue-800"></div>
+  </div>
+
+  <button id="refreshBtn" onclick="refreshData()" class="hidden fixed top-3 right-4 md:top-4 md:right-6 z-50 text-white md:text-blue-600 hover:text-gray-200 md:hover:text-blue-800 transition drop-shadow" title="รีเฟรชข้อมูล">
+      <i class="fas fa-sync-alt text-2xl md:text-3xl"></i>
+  </button>
+
+  <div id="loginPage" class="h-screen flex items-center justify-center p-4 bg-gray-100">
+    <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm border-t-8 border-blue-800 animate-fade-in">
+      <div class="text-center mb-6">
+        <div class="text-blue-800 text-lg font-bold mb-3 flex items-center justify-center gap-2">
+           <i class="fas fa-sign-in-alt text-2xl"></i> <span>เข้าสู่ระบบ</span>
+        </div>
+        <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEilvo7JNxwVfHqSwlHBfqCVZEmS2bFpVpOg35A5x9siuR4xftBcqQYGQ3M1ezR7Y7VQQxPD_m2i2Y5tUolBcpizIVMvLd2OtXOnWk6kV-MGsceple2dCmu6L3OJTi6ufntLm9njPyuYtb8uCiMQTbxxkwW_wPDa74n6m9RAlx9ZrJPg2gk3JXfExvNAxlw/w241-h188/Near-miss%20(1).png" alt="Near Miss Logo" class="mx-auto h-24 object-contain mb-3">
+        <h1 class="text-xl font-bold text-gray-800 leading-tight">Near Miss & Hazard Point </h1>
+        <p class="text-sm text-gray-500 mt-2">ระบบรายงานเหตุการณ์เกือบเกิดอุบัติเหตุ & จุดอันตราย</p>
+      </div>
+      <input type="text" id="empId" placeholder="กรอกรหัสพนักงาน เช่น Q12345" class="w-full p-3 border rounded-lg mb-3 outline-none focus:border-2 focus:border-blue-400" onkeypress="if(event.key==='Enter') doLogin()">
+      
+      <div class="flex items-center justify-between mb-5 px-1">
+         <label class="flex items-center text-sm text-gray-600 cursor-pointer hover:text-blue-600 transition">
+            <input type="checkbox" id="rememberMe" class="mr-2 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 cursor-pointer">
+            จดจำฉันไว้ในระบบ
+         </label>
+      </div>
+
+      <button onclick="doLogin()" class="w-full bg-blue-800 text-white p-3 rounded-lg hover:bg-blue-700 transition font-medium flex justify-center items-center gap-2">
+        <i class="fas fa-sign-in-alt"></i> เข้าสู่ระบบ
+      </button>
+    </div>
+  </div>
+
+  <div id="app" class="hidden flex h-screen w-full overflow-hidden relative">
+    
+    <aside id="sidebar" class="hidden md:flex flex-col w-64 bg-[#1E40AF] text-white flex-shrink-0 z-40 shadow-xl">
+      <div class="p-6 border-b border-blue-700 flex flex-col items-center justify-center">
+        <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEilvo7JNxwVfHqSwlHBfqCVZEmS2bFpVpOg35A5x9siuR4xftBcqQYGQ3M1ezR7Y7VQQxPD_m2i2Y5tUolBcpizIVMvLd2OtXOnWk6kV-MGsceple2dCmu6L3OJTi6ufntLm9njPyuYtb8uCiMQTbxxkwW_wPDa74n6m9RAlx9ZrJPg2gk3JXfExvNAxlw/w241-h188/Near-miss%20(1).png" alt="Logo" class="h-16 object-contain mb-2 shadow-sm">
+        <span class="text-xl font-bold tracking-wide">SAFETY SYSTEM</span>
+      </div>
+      <div class="p-4 bg-blue-900 text-sm font-medium" id="userDisplayPC"></div>
+      <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
+        <button onclick="nav('dashboard')" class="w-full text-left p-3 hover:bg-blue-700 rounded-lg transition"><i class="fas fa-chart-pie w-6"></i> Dashboard</button>
+        <button onclick="nav('report')" class="role-user hidden w-full text-left p-3 hover:bg-blue-700 rounded-lg transition"><i class="fas fa-edit w-6"></i> Record Report</button>
+        <button onclick="nav('my')" class="role-user hidden w-full text-left p-3 hover:bg-blue-700 rounded-lg transition"><i class="fas fa-history w-6"></i> My Report</button>
+        <button onclick="nav('dept')" class="role-user hidden w-full text-left p-3 hover:bg-blue-700 rounded-lg transition"><i class="fas fa-users-cog w-6"></i> งานส่วนงานฉัน</button>
+        
+        <button onclick="nav('admin')" class="role-manager hidden w-full text-left p-3 hover:bg-blue-700 rounded-lg transition"><i class="fas fa-user-shield w-6"></i> รอตรวจสอบ</button>
+        <button onclick="nav('pendingFix')" class="role-manager hidden w-full text-left p-3 hover:bg-blue-700 rounded-lg transition"><i class="fas fa-tools w-6"></i> ประเด็นที่รอแก้ไข</button>
+        <button onclick="nav('allReports')" class="role-manager hidden w-full text-left p-3 hover:bg-blue-700 rounded-lg transition"><i class="fas fa-list w-6"></i> รายงานทั้งหมด</button>
+        <button onclick="logout()" class="w-full text-left p-3 hover:bg-red-500 bg-red-600 rounded-lg mt-10 transition shadow"><i class="fas fa-sign-out-alt w-6"></i> ออกจากระบบ</button>
+      </nav>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50 relative">
+      <header class="md:hidden bg-gradient-to-r from-blue-800 to-blue-600 shadow-md p-3 flex items-center justify-between z-20 text-white">
+        <button onclick="toggleMoreMenu()" class="text-white hover:text-gray-200 p-2 focus:outline-none w-10">
+          <i class="fas fa-bars text-xl"></i>
+        </button>
+        <div class="flex items-center justify-center gap-2 font-bold flex-1">
+          <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEilvo7JNxwVfHqSwlHBfqCVZEmS2bFpVpOg35A5x9siuR4xftBcqQYGQ3M1ezR7Y7VQQxPD_m2i2Y5tUolBcpizIVMvLd2OtXOnWk6kV-MGsceple2dCmu6L3OJTi6ufntLm9njPyuYtb8uCiMQTbxxkwW_wPDa74n6m9RAlx9ZrJPg2gk3JXfExvNAxlw/w241-h188/Near-miss%20(1).png" alt="Logo" class="h-8 object-contain">
+          <span class="truncate text-lg sm:text-2xl">Near Miss & Hazard</span>
+        </div>
+        <div class="w-10"></div> 
+      </header>
+
+      <div class="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8">
+        <div id="sec-dashboard" class="space-y-6 animate-fade-in">
+          <div class="flex flex-col md:flex-row justify-between items-center border-b pb-3 border-gray-200">
+             <h2 class="text-xl font-bold text-gray-800"><i class="fas fa-chart-line text-blue-600 mr-2"></i> ภาพรวมระบบ (Dashboard)</h2>
+             <div class="flex gap-3 mt-4 md:mt-0 bg-white p-2 rounded-lg shadow-sm border border-gray-200 text-sm">
+                <div class="flex items-center gap-2">
+                  <i class="far fa-calendar-alt text-gray-400"></i>
+                  <select id="dashMonth" onchange="renderDashboard()" class="outline-none bg-transparent font-medium cursor-pointer bg-white">
+                    <option value="all">ทุกเดือน</option>
+                    <option value="01">มกราคม</option><option value="02">กุมภาพันธ์</option><option value="03">มีนาคม</option><option value="04">เมษายน</option>
+                    <option value="05">พฤษภาคม</option><option value="06">มิถุนายน</option><option value="07">กรกฎาคม</option><option value="08">สิงหาคม</option>
+                    <option value="09">กันยายน</option><option value="10">ตุลาคม</option><option value="11">พฤศจิกายน</option><option value="12">ธันวาคม</option>
+                  </select>
+                </div>
+                <div class="w-px bg-gray-300"></div>
+                <select id="dashYear" onchange="renderDashboard()" class="outline-none bg-transparent font-medium cursor-pointer bg-white">
+                  <option value="all">ทุกปี</option><option value="2026">2026</option><option value="2027">2027</option>
+                  <option value="2028">2028</option><option value="2029">2029</option><option value="2030">2030</option>
+                </select>
+             </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 cursor-pointer hover:bg-blue-50 transition group flex flex-col items-center justify-center text-center h-80" onclick="openPersonSummary()">
+               <h3 class="text-gray-700 text-lg font-bold mb-4 border-b border-gray-200 pb-3 w-full"><i class="fas fa-users text-blue-500 mr-2"></i> จำนวนเรื่องรายบุคคล</h3>
+               <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgjgjGJGkHPhwnBtwjrskqPt0sXQSg7k2hpXUiG0Vv7eyybz4yZhyOGgMbFqdnUr_vjiiiVMm600yaTRqB6JoVtmAtpzv7Qp1cXWxYYnDMmT93pTyNgNlYAgvB488e9bcFrxxR27I_qj0ybd893IXkvjU6cWUB6WUUJeJUgrSKDdWq3-pJ-V3hlO_tMe9A/s320/%E0%B8%A7%E0%B8%B4%E0%B8%98%E0%B8%B5%E0%B9%83%E0%B8%8A%E0%B9%89%E0%B8%87%E0%B8%B2%E0%B8%99.%E0%B8%A3%E0%B8%B9%E0%B8%9B%E0%B8%A0%E0%B8%B2%E0%B8%9E.094227.png" alt="Person Summary" class="max-h-40 object-contain group-hover:scale-105 transition-transform duration-300">
+               <p class="text-sm text-gray-400 mt-4"><i class="fas fa-hand-pointer"></i> คลิกเพื่อดูสรุปรายบุคคล</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col h-80">
+               <h3 class="text-center font-bold text-gray-700 mb-4 border-b pb-2"><i class="fas fa-exclamation-triangle text-blue-500 mr-1"></i> จำนวนเรื่องแยกระดับความรุนแรง (ตามปี)</h3>
+               <div class="flex-1 relative w-full h-full"><canvas id="chartSeverityYear"></canvas></div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 h-96 flex flex-col">
+                <h3 class="text-center font-bold text-gray-700 mb-4 border-b pb-2"><i class="fas fa-layer-group text-blue-500 mr-1"></i> สถานะการแก้ไข (แยกตามแผนกที่รับผิดชอบ)</h3>
+                <div class="flex-1 relative w-full h-full"><canvas id="chartBar"></canvas></div>
+             </div>
+             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 h-96 flex flex-col">
+                <h3 class="text-center font-bold text-gray-700 mb-4 border-b pb-2"><i class="fas fa-chart-pie text-blue-500 mr-1"></i> สัดส่วนประเภทรายงาน (Hazard / Near Miss)</h3>
+                <div class="flex-1 relative w-full h-full flex items-center justify-center">
+                   <canvas id="chartDoughnut" class="relative z-10"></canvas>
+                   <div class="absolute inset-0 flex flex-col items-center justify-center pb-6 pointer-events-none z-0">
+                       <span class="text-xs text-gray-500 font-medium mb-1">รวมทั้งหมด</span>
+                       <span id="stat-total" class="text-5xl font-bold text-blue-600 leading-none">0</span>
+                   </div>
+                </div>
+             </div>
+          </div>
+        </div>
+
+        <div id="sec-person-summary" class="hidden animate-fade-in">
+           <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b pb-4 w-11/12 md:w-full">
+              <div class="flex items-center gap-4">
+                 <button onclick="nav('dashboard')" class="bg-gray-200 text-gray-600 hover:bg-gray-700 hover:text-white p-2 px-4 rounded-lg transition font-medium"><i class="fas fa-arrow-left mr-1"></i> กลับ</button>
+                 <h2 class="text-xl font-bold text-gray-800"><i class="fas fa-users text-blue-600 mr-2"></i> จำนวนเรื่องรายบุคคล</h2>
+              </div>
+              <div class="flex items-center gap-2 bg-white p-2 px-3 rounded-lg shadow-sm border border-gray-200 text-sm">
+                 <i class="far fa-calendar-alt text-gray-500"></i><span class="font-bold text-gray-700">ปี:</span>
+                 <select id="personSummaryYear" onchange="renderPersonSummary()" class="outline-none bg-transparent font-bold cursor-pointer text-blue-700 bg-white">
+                    <option value="2026">2026</option><option value="2027">2027</option><option value="2028">2028</option><option value="2029">2029</option><option value="2030">2030</option>
+                 </select>
+              </div>
+           </div>
+           <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
+             <div class="overflow-x-auto">
+               <table class="w-full text-left whitespace-nowrap">
+                 <thead class="bg-indigo-800 text-white text-sm">
+                   <tr>
+                     <th class="p-4 border-r border-indigo-700">ส่วนงาน</th><th class="p-4 border-r border-indigo-700">ชื่อผู้รายงาน</th>
+                     <th class="p-4 text-center border-r border-indigo-700 bg-indigo-900">รวมทั้งหมด</th>
+                     <th class="p-4 text-center">Q1</th><th class="p-4 text-center">Q2</th><th class="p-4 text-center">Q3</th><th class="p-4 text-center">Q4</th>
+                   </tr>
+                 </thead>
+                 <tbody id="personSummaryTable" class="divide-y divide-gray-200 text-sm"></tbody>
+               </table>
+             </div>
+           </div>
+        </div>
+
+        <div id="sec-report" class="hidden max-w-2xl mx-auto bg-white p-6 rounded-xl shadow-sm animate-fade-in">
+          <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2"><i class="fas fa-file-signature text-blue-600"></i> ฟอร์มรายงาน</h2>
+          <form id="reportForm" onsubmit="handleSave(event, 'new')" class="space-y-5" novalidate>
+            <div>
+               <label class="block text-sm font-medium mb-1"><i class="fas fa-calendar-day text-blue-500 mr-2"></i> วันที่พบ <span class="text-red-500">*</span></label>
+               <input type="date" name="date" id="f_date_input" class="w-full p-2.5 border rounded-lg outline-none bg-gray-100 cursor-not-allowed text-gray-600 font-medium shadow-inner" required readonly>
+            </div>
+            <div><label class="block text-sm font-medium mb-1"><i class="fas fa-map-marker-alt text-red-500 mr-2"></i> พื้นที่ที่พบ <span class="text-red-500">*</span></label><input type="text" name="location" class="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-400 bg-white" required></div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium mb-1"><i class="fas fa-flag text-green-500 mr-2"></i> หัวข้อ <span class="text-red-500">*</span></label>
+                <select name="topic" class="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-400 bg-white" required>
+                  <option value="" disabled selected>-- เลือกหัวข้อ --</option>
+                  <option value="จุดอันตราย (Hazard Point)">จุดอันตราย (Hazard Point)</option>
+                  <option value="เหตุการณ์เกือบเกิดอุบัติเหตุ (Near-miss)">เหตุการณ์เกือบเกิดอุบัติเหตุ (Near-miss)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1"><i class="fas fa-exclamation-triangle text-yellow-500 mr-2"></i> ความรุนแรง <span class="text-red-500">*</span></label>
+                <select name="severity" class="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-400 bg-white" required>
+                  <option value="" disabled selected>-- เลือกระดับความรุนแรง --</option>
+                  <option value="GREEN = สามารถปฏิบัติงานต่อได้ (Continue)">🟢 ทำงานต่อได้</option>
+                  <option value="YELLOW = แก้ไข/เฝ้าระวังการปฏิบัติงาน (Use Caution)">🟡 แก้ไข/ระวังการทำงาน</option>
+                  <option value="RED = หยุดปฏิบัติงานและแก้ไขทันที (Stop Work)">🔴 หยุดงานและแก้ไขทันที</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1"><i class="fas fa-tags text-purple-500 mr-2"></i> จัดอยู่ในประเภท <span class="text-red-500">*</span></label>
+              <select name="type" class="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-400 bg-white" required>
+                  <option value="" disabled selected>-- เลือกประเภท --</option>
+                  <option value="การกระทำที่ไม่ปลอดภัย (Unsafe Act)">การกระทำที่ไม่ปลอดภัย</option>
+                  <option value="สภาพการณ์ที่ไม่ปลอดภัย (Unsafe Condition)">สภาพการณ์ที่ไม่ปลอดภัย</option>
+                  <option value="เครื่องจักร/อุปกรณ์ที่ไม่ปลอดภัย">เครื่องจักร/อุปกรณ์ที่ไม่ปลอดภัย</option>
+                  <option value="อุปกรณ์ป้องกันส่วนบุคคลไม่เหมาะสม">PPE ไม่เหมาะสม </option>
+              </select>
+            </div>
+            <div><label class="block text-sm font-medium mb-1"><i class="fas fa-comment-dots text-gray-500 mr-2"></i> รายละเอียดสิ่งที่พบ <span class="text-red-500">*</span></label><textarea name="desc" class="w-full p-2.5 border rounded-lg h-24 bg-white" required></textarea></div>
+            <div><label class="block text-sm font-medium mb-1"><i class="fas fa-hands-helping text-blue-400 mr-2"></i> การมีส่วนร่วมในการป้องกันแก้ไข <span class="text-red-500">*</span></label><textarea name="participation" class="w-full p-2.5 border rounded-lg h-20 bg-white" required placeholder="ระบุการมีส่วนร่วมของคุณ..."></textarea></div>
+            <div>
+              <label class="block text-sm font-medium mb-1"><i class="fas fa-image text-indigo-500 mr-2"></i> ภาพประกอบ (ไม่เกิน 5 MB) <span class="text-red-500">*</span></label>
+              <input type="file" id="photo" accept="image/*" onchange="handleImage(this, 'imgPreview', 'main_new')" class="w-full p-2 border rounded-lg bg-white" required>
+              <div class="mt-2 flex justify-center"><img id="imgPreview" class="hidden rounded-lg max-h-40 object-contain shadow-sm border"></div>
+            </div>
+            <div class="pt-4 border-t border-gray-200">
+              <label class="block text-sm font-bold text-gray-700 mb-2"><i class="fas fa-tasks text-orange-500 mr-2"></i> การดำเนินการเบื้องต้น <span class="text-red-500">*</span></label>
+              <div class="flex gap-4">
+                <label class="flex-1 flex items-center justify-center gap-2 cursor-pointer p-2 border rounded-lg hover:bg-red-50 transition bg-white">
+                  <input type="radio" name="isFixed" value="ยังไม่ได้แก้ไข" onchange="toggleFixFields('new')" class="w-5 h-5 text-blue-600" required><span class="font-sm text-red-600">❌ ยังไม่ได้แก้ไข</span>
+                </label>
+                <label class="flex-1 flex items-center justify-center gap-2 cursor-pointer p-2 border rounded-lg hover:bg-green-50 transition bg-white">
+                  <input type="radio" name="isFixed" value="แก้ไขแล้ว" onchange="toggleFixFields('new')" class="w-5 h-5 text-green-600" required><span class="font-sm text-green-600">✅ แก้ไขแล้ว</span>
+                </label>
+              </div>
+            </div>
+            <div id="fixFields_new" class="hidden bg-green-50 border border-green-200 p-5 rounded-xl space-y-4 animate-fade-in mt-4">
+              <h3 class="text-green-800 font-bold border-b border-green-200 pb-2"><i class="fas fa-tools mr-2"></i> ข้อมูลหลังการแก้ไข</h3>
+              <div><label class="block text-sm font-medium mb-1"><i class="fas fa-wrench text-gray-500 mr-2"></i> วิธีแก้ไข <span class="text-red-500">*</span></label><textarea name="fixMethod" id="fixMethod_new" class="w-full p-2.5 border rounded-lg h-20 bg-white"></textarea></div>
+              <div><label class="block text-sm font-medium mb-1"><i class="fas fa-calendar-check text-green-500 mr-2"></i> วันที่แก้ไข <span class="text-red-500">*</span></label><input type="date" name="fixDate" id="fixDate_new" class="w-full p-2.5 border rounded-lg bg-white"></div>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><label class="block text-sm font-medium mb-1 text-gray-600"><i class="fas fa-camera text-gray-400 mr-1"></i> ภาพหลังแก้ไข 1 <span class="text-red-500">*</span></label><input type="file" id="fixImg1_new" accept="image/*" onchange="handleImage(this, 'previewFix1_new', 'fix1_new')" class="w-full p-1.5 border rounded bg-white text-sm"><img id="previewFix1_new" class="hidden mt-2 rounded max-h-32 object-contain border bg-white"></div>
+                <div><label class="block text-sm font-medium mb-1 text-gray-600"><i class="fas fa-camera text-gray-400 mr-1"></i> ภาพหลังแก้ไข 2</label><input type="file" id="fixImg2_new" accept="image/*" onchange="handleImage(this, 'previewFix2_new', 'fix2_new')" class="w-full p-1.5 border rounded bg-white text-sm"><img id="previewFix2_new" class="hidden mt-2 rounded max-h-32 object-contain border bg-white"></div>
+              </div>
+            </div>
+            <button type="submit" class="w-full bg-blue-600 text-white p-3.5 rounded-lg font-bold hover:bg-blue-700 transition shadow-md mt-6">ส่งรายงาน</button>
+          </form>
+        </div>
+
+        <div id="sec-my" class="hidden animate-fade-in">
+          <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2 w-11/12 md:w-full"><i class="fas fa-history text-blue-600"></i> รายงานที่ฉันเป็นผู้ส่ง</h2>
+          <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left whitespace-nowrap">
+                <thead class="bg-gray-100 text-gray-700 text-sm">
+                  <tr>
+                    <th class="p-4">วันที่</th><th class="p-4 text-center">ภาพแนบ</th><th class="p-4 text-center">ไตรมาสที่</th><th class="p-4 text-center">จัดการ</th><th class="p-4">สถานะ</th>
+                  </tr>
+                </thead>
+                <tbody id="myTable" class="divide-y divide-gray-200 text-sm"></tbody>
+              </table>
+            </div>
+            <div id="myEmpty" class="hidden p-8 text-center text-gray-500">ไม่พบประวัติการรายงาน</div>
+          </div>
+        </div>
+
+        <div id="sec-dept" class="hidden animate-fade-in">
+          <div class="flex justify-between items-end mb-6 border-b pb-2 w-11/12 md:w-full">
+            <h2 class="text-2xl font-bold text-gray-800"><i class="fas fa-users-cog text-blue-600"></i> ที่ส่วนงานฉันต้องแก้ไข</h2>
+          </div>
+          <p class="text-sm text-gray-500 mb-4" id="displayDeptTag"></p>
+          <div id="deptList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+          <div id="deptEmpty" class="hidden p-8 text-center text-gray-500 bg-white rounded-xl shadow-sm border">ไม่มีรายการค้างแก้ไขในส่วนงานของคุณ</div>
+        </div>
+
+        <div id="sec-admin" class="hidden animate-fade-in">
+          <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2 w-11/12 md:w-full"><i class="fas fa-user-shield text-blue-600"></i> รอตรวจสอบ (Manager)</h2>
+          <div id="adminList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+          <div id="adminEmpty" class="hidden p-8 text-center text-gray-500 bg-white rounded-xl shadow-sm border">ไม่มีรายการรอตรวจสอบ</div>
+        </div>
+
+        <div id="sec-pendingFix" class="hidden animate-fade-in">
+          <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2 w-11/12 md:w-full"><i class="fas fa-tools text-orange-600"></i> ประเด็นที่รอแก้ไข (รอผู้ที่เกี่ยวข้องแก้ไข)</h2>
+          <div id="pendingFixList" class="w-full"></div>
+          <div id="pendingFixEmpty" class="hidden p-8 text-center text-gray-500 bg-white rounded-xl shadow-sm border">ไม่มีรายการค้างแก้ไขในระบบ</div>
+        </div>
+
+        <div id="sec-allReports" class="hidden animate-fade-in">
+          <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2 w-11/12 md:w-full"><i class="fas fa-list text-blue-600"></i> รายงานทั้งหมด</h2>
+          
+          <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 mb-6">
+              <div class="flex items-center mb-3 text-gray-700 font-bold border-b border-gray-100 pb-2"><i class="fas fa-filter mr-2 text-blue-500"></i> ตัวกรองรายงาน</div>
+              <div class="flex flex-wrap gap-4">
+                  <div class="flex-1 min-w-[200px]">
+                      <label class="block text-sm font-medium mb-1 text-gray-600">วันที่เริ่ม</label>
+                      <input type="date" id="filterStartDate" class="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 outline-none focus:ring-2 focus:ring-blue-400">
+                  </div>
+                  <div class="flex-1 min-w-[200px]">
+                      <label class="block text-sm font-medium mb-1 text-gray-600">ถึงวันที่</label>
+                      <input type="date" id="filterEndDate" class="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 outline-none focus:ring-2 focus:ring-blue-400">
+                  </div>
+                  
+                  <div class="flex-1 min-w-[220px] relative">
+                      <label class="block text-sm font-medium mb-1 text-gray-600">ส่วนงานที่รับผิดชอบ</label>
+                      <button type="button" onclick="toggleDropdown('filterDeptDropdown')" class="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 flex justify-between items-center focus:ring-2 focus:ring-blue-400 outline-none">
+                        <span id="deptDropdownLabel" class="truncate text-gray-600 text-sm">ทั้งหมด</span>
+                        <i class="fas fa-chevron-down text-gray-400"></i>
+                      </button>
+                      <div id="filterDeptDropdown" class="hidden absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto p-2">
+                        <div id="filterDeptContainer" class="space-y-1"></div>
+                      </div>
+                  </div>
+
+                  <div class="flex-1 min-w-[220px] relative">
+                      <label class="block text-sm font-medium mb-1 text-gray-600">สถานะ</label>
+                      <button type="button" onclick="toggleDropdown('filterStatusDropdown')" class="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 flex justify-between items-center focus:ring-2 focus:ring-blue-400 outline-none">
+                        <span id="statusDropdownLabel" class="truncate text-gray-600 text-sm">ทั้งหมด</span>
+                        <i class="fas fa-chevron-down text-gray-400"></i>
+                      </button>
+                      <div id="filterStatusDropdown" class="hidden absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+                          <label class="flex items-center space-x-2 cursor-pointer hover:bg-gray-100 p-1.5 rounded"><input type="checkbox" value="รอตรวจสอบ" class="status-checkbox w-4 h-4 text-blue-600 rounded border-gray-300" onchange="updateDropdownLabel('status-checkbox', 'statusDropdownLabel')"><span class="text-sm">รอตรวจสอบ</span></label>
+                          <label class="flex items-center space-x-2 cursor-pointer hover:bg-gray-100 p-1.5 rounded"><input type="checkbox" value="รอผู้ที่เกี่ยวข้องแก้ไข" class="status-checkbox w-4 h-4 text-blue-600 rounded border-gray-300" onchange="updateDropdownLabel('status-checkbox', 'statusDropdownLabel')"><span class="text-sm">รอผู้ที่เกี่ยวข้องแก้ไข</span></label>
+                          <label class="flex items-center space-x-2 cursor-pointer hover:bg-gray-100 p-1.5 rounded"><input type="checkbox" value="แก้ไขแล้ว" class="status-checkbox w-4 h-4 text-blue-600 rounded border-gray-300" onchange="updateDropdownLabel('status-checkbox', 'statusDropdownLabel')"><span class="text-sm">แก้ไขแล้ว</span></label>
+                          <label class="flex items-center space-x-2 cursor-pointer hover:bg-gray-100 p-1.5 rounded"><input type="checkbox" value="ปฏิเสธรับเข้าระบบ" class="status-checkbox w-4 h-4 text-blue-600 rounded border-gray-300" onchange="updateDropdownLabel('status-checkbox', 'statusDropdownLabel')"><span class="text-sm">ปฏิเสธรับเข้าระบบ</span></label>
+                      </div>
+                  </div>
+              </div>
+              <div class="w-full flex justify-end gap-3 mt-4 pt-4 border-t border-gray-100">
+                  <button onclick="resetAllReportsFilters()" class="px-5 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium border border-gray-200"><i class="fas fa-undo-alt mr-1"></i> ล้างตัวกรอง</button>
+                  <button onclick="renderAllReports()" class="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium shadow-sm"><i class="fas fa-search mr-1"></i> ค้นหา</button>
+              </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left whitespace-nowrap">
+                <thead class="bg-blue-800 text-white text-sm">
+                  <tr>
+                    <th class="p-3">ID</th><th class="p-3">วันที่</th><th class="p-3">ผู้รายงาน</th><th class="p-3 text-center">ภาพ</th><th class="p-3">สถานะ</th><th class="p-3 text-center">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody id="allReportsTable" class="divide-y divide-gray-200"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <nav class="md:hidden fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around items-center h-16 text-xs text-gray-400 z-30 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] pb-safe">
+      <button id="btn-m-dashboard" onclick="nav('dashboard')" class="flex-1 flex flex-col items-center justify-center h-full transition"><i class="fas fa-chart-pie text-xl mb-1"></i> <span class="text-[10px]">สถิติ</span></button>
+      <button id="btn-m-report" onclick="nav('report')" class="role-user hidden flex-1 flex flex-col items-center justify-center h-full transition"><i class="fas fa-edit text-xl mb-1"></i> <span class="text-[10px]">กรอก</span></button>
+      <button id="btn-m-my" onclick="nav('my')" class="role-user hidden flex-1 flex flex-col items-center justify-center h-full transition"><i class="fas fa-history text-xl mb-1"></i> <span class="text-[10px]">ของฉัน</span></button>
+      <button id="btn-m-dept" onclick="nav('dept')" class="role-user hidden flex-1 flex flex-col items-center justify-center h-full transition"><i class="fas fa-users-cog text-xl mb-1"></i> <span class="text-[10px]">ส่วนงาน</span></button>
+      
+      <button id="btn-m-admin" onclick="nav('admin')" class="role-manager hidden flex-1 flex flex-col items-center justify-center h-full transition"><i class="fas fa-user-shield text-xl mb-1"></i> <span class="text-[10px]">ตรวจสอบ</span></button>
+      <button id="btn-m-pendingFix" onclick="nav('pendingFix')" class="role-manager hidden flex-1 flex flex-col items-center justify-center h-full transition"><i class="fas fa-tools text-xl mb-1"></i> <span class="text-[10px]">รอแก้ไข</span></button>
+      <button id="btn-m-allReports" onclick="nav('allReports')" class="role-manager hidden flex-1 flex flex-col items-center justify-center h-full transition"><i class="fas fa-list text-xl mb-1"></i> <span class="text-[10px]">รายงาน</span></button>
+    </nav>
+  </div>
+
+  <div id="moreMenuMobile" class="fixed inset-0 bg-black/50 z-50 hidden justify-start" onclick="toggleMoreMenu()">
+    <div class="bg-white w-64 h-full shadow-2xl flex flex-col transform -translate-x-full transition-transform duration-300" onclick="event.stopPropagation()">
+      <div class="bg-blue-800 p-6 flex flex-col items-center text-white border-b border-blue-700">
+        <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEilvo7JNxwVfHqSwlHBfqCVZEmS2bFpVpOg35A5x9siuR4xftBcqQYGQ3M1ezR7Y7VQQxPD_m2i2Y5tUolBcpizIVMvLd2OtXOnWk6kV-MGsceple2dCmu6L3OJTi6ufntLm9njPyuYtb8uCiMQTbxxkwW_wPDa74n6m9RAlx9ZrJPg2gk3JXfExvNAxlw/w241-h188/Near-miss%20(1).png" alt="Logo" class="h-20 object-contain mb-4 rounded-lg">
+        <div id="userDisplayMobile" class="w-full text-left"></div>
+      </div>
+      <div class="flex-1 p-4 space-y-2">
+        <button onclick="logout(); toggleMoreMenu();" class="w-full text-left p-3 text-red-600 hover:bg-red-50 rounded-xl font-medium transition flex items-center shadow-sm border border-red-100 mt-2">
+          <i class="fas fa-sign-out-alt w-8"></i> ลงชื่อออก
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="deptEditModalOverlay" class="fixed inset-0 bg-black/60 z-[999] hidden flex-col items-center justify-center p-4">
+    <div class="bg-white w-full max-w-lg rounded-xl shadow-2xl flex flex-col">
+      <div class="p-4 border-b flex justify-between items-center bg-indigo-50 rounded-t-xl">
+        <h2 class="text-xl font-bold text-indigo-800"><i class="fas fa-tools"></i> ส่งงานการแก้ไข (ส่วนงาน)</h2>
+        <button onclick="closeDeptEditModal()" class="text-gray-500 hover:text-red-500"><i class="fas fa-times fa-lg"></i></button>
+      </div>
+      <div class="p-5 overflow-y-auto max-h-[80vh]">
+        <form id="deptEditForm" onsubmit="handleDeptSave(event)" class="space-y-4 text-sm" novalidate>
+          <input type="hidden" name="reportId" id="d_reportId">
+          <div><label class="block font-medium mb-1">วิธีดำเนินการแก้ไข <span class="text-red-500">*</span></label><textarea name="fixMethod" id="d_fixMethod" class="w-full p-2 border rounded-lg h-24 bg-white" required></textarea></div>
+          <div><label class="block font-medium mb-1">วันที่แก้ไขเสร็จสิ้น <span class="text-red-500">*</span></label><input type="date" name="fixDate" id="d_fixDate" class="w-full p-2 border rounded-lg bg-white" required></div>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="border p-3 rounded-lg bg-gray-50"><label class="block text-xs font-medium mb-2 text-gray-600">ภาพหลังแก้ไข 1</label><input type="file" id="d_fixImg1" accept="image/*" onchange="handleImage(this, 'preview_d1', 'fix1_dept')" class="w-full text-xs bg-white" required><img id="preview_d1" class="hidden mt-2 rounded border max-h-24 object-contain"></div>
+            <div class="border p-3 rounded-lg bg-gray-50"><label class="block text-xs font-medium mb-2 text-gray-600">ภาพหลังแก้ไข 2</label><input type="file" id="d_fixImg2" accept="image/*" onchange="handleImage(this, 'preview_d2', 'fix2_dept')" class="w-full text-xs bg-white"><img id="preview_d2" class="hidden mt-2 rounded border max-h-24 object-contain"></div>
+          </div>
+          <button type="submit" class="w-full bg-indigo-600 text-white p-3 rounded-lg font-bold hover:bg-indigo-700 transition shadow">ส่งข้อมูลให้ Admin ตรวจสอบ</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="editModalOverlay" class="fixed inset-0 bg-black/60 z-[999] hidden flex-col items-center justify-center p-4">
+    <div class="bg-white w-full max-w-xl rounded-xl shadow-2xl flex flex-col">
+      <div class="p-4 border-b flex justify-between items-center bg-amber-50 rounded-t-xl">
+        <h2 class="text-xl font-bold text-amber-800"><i class="fas fa-edit"></i> แก้ไขข้อมูล (Admin)</h2>
+        <button onclick="closeEditModal()" class="text-gray-500 hover:text-red-500"><i class="fas fa-times fa-lg"></i></button>
+      </div>
+      <div class="p-5 overflow-y-auto max-h-[80vh]">
+        <form id="editForm" onsubmit="handleSave(event, 'edit')" class="space-y-3 text-sm" novalidate>
+          <input type="hidden" name="reportId" id="e_reportId">
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="block font-medium mb-1">วันที่</label><input type="date" name="date" id="e_date" class="w-full p-2 border rounded bg-white" required></div>
+            <div><label class="block font-medium mb-1">พื้นที่</label><input type="text" name="location" id="e_location" class="w-full p-2 border rounded bg-white" required></div>
+          </div>
+          <div><label class="block font-medium mb-1">หัวข้อ</label><input type="text" name="topic" id="e_topic" class="w-full p-2 border rounded bg-white" required></div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="block font-medium mb-1">ความรุนแรง</label><select name="severity" id="e_severity" class="w-full p-2 border rounded bg-white" required><option value="GREEN">GREEN</option><option value="YELLOW">YELLOW</option><option value="RED">RED</option></select></div>
+            <div><label class="block font-medium mb-1">ประเภท</label><select name="type" id="e_type" class="w-full p-2 border rounded bg-white" required><option value="Unsafe Act">Unsafe Act</option><option value="Unsafe Condition">Unsafe Condition</option></select></div>
+          </div>
+          <div><label class="block font-medium mb-1">รายละเอียด</label><textarea name="desc" id="e_desc" class="w-full p-2 border rounded h-16 bg-white" required></textarea></div>
+          <div><label class="block font-medium mb-1">การมีส่วนร่วม</label><textarea name="participation" id="e_participation" class="w-full p-2 border rounded h-16 bg-white" required></textarea></div>
+          <div class="border p-3 rounded bg-gray-50">
+            <label class="block font-bold mb-2">เปลี่ยนรูปภาพหลัก (เว้นว่างไว้หากไม่ต้องการเปลี่ยน)</label>
+            <input type="file" id="photo_edit" accept="image/*" onchange="handleImage(this, 'preview_edit', 'main_edit')" class="w-full p-1 text-xs bg-white border rounded">
+            <div class="mt-2 flex justify-center"><img id="preview_edit" class="hidden rounded-lg max-h-24 object-contain shadow-sm border bg-white"></div>
+          </div>
+          <div class="border-t pt-3 mt-3">
+            <label class="block font-bold mb-2">สถานะการแก้ไข</label>
+            <select name="isFixed" id="e_isFixed" onchange="toggleFixFields('edit')" class="w-full p-2 border rounded font-medium bg-white"><option value="ยังไม่ได้แก้ไข">❌ ยังไม่ได้แก้ไข</option><option value="แก้ไขแล้ว">✅ แก้ไขแล้ว</option></select>
+          </div>
+          <div id="fixFields_edit" class="hidden bg-green-50 p-3 rounded border border-green-200 space-y-3">
+            <div><label class="block font-medium mb-1">วิธีแก้ไข</label><textarea name="fixMethod" id="fixMethod_edit" class="w-full p-2 border rounded h-16 bg-white"></textarea></div>
+            <div><label class="block font-medium mb-1">วันที่แก้ไข</label><input type="date" name="fixDate" id="fixDate_edit" class="w-full p-2 border rounded bg-white"></div>
+            <div class="grid grid-cols-2 gap-2">
+              <div class="border p-2 bg-white rounded"><label class="block text-xs mb-1">เปลี่ยนภาพหลังแก้ไข 1</label><input type="file" id="fixImg1_edit" accept="image/*" onchange="handleImage(this, 'previewFix1_edit', 'fix1_edit')" class="w-full text-xs bg-white"><img id="previewFix1_edit" class="hidden mt-2 rounded border max-h-24 object-contain"></div>
+              <div class="border p-2 bg-white rounded"><label class="block text-xs mb-1">เปลี่ยนภาพหลังแก้ไข 2</label><input type="file" id="fixImg2_edit" accept="image/*" onchange="handleImage(this, 'previewFix2_edit', 'fix2_edit')" class="w-full text-xs bg-white"><img id="previewFix2_edit" class="hidden mt-2 rounded border max-h-24 object-contain"></div>
+            </div>
+          </div>
+          <button type="submit" class="w-full bg-amber-500 text-white p-3 rounded-lg font-bold hover:bg-amber-600 transition shadow mt-4">บันทึกการเปลี่ยนแปลง</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================
+    // นำลิงก์ Web App จาก Google Apps Script มาวางแทนที่ตรงนี้
+    // =========================================================
+    const API_URL = "https://script.google.com/macros/s/AKfycbzeOZoVUrqjk8xY9ib0lJisQFyTsKC_BiBLrEKmSpTnswqdQonyILYb6muU6ripn-HJ/exec";
+
+    Chart.register(ChartDataLabels);
+
+    let user = null; let currentSection = 'dashboard'; let reportCache = []; let departmentList = [];
+    let doughnutChart = null; let barChart = null; let severityChart = null;
+    let imagePayloads = {};
+
+    // ฟังก์ชันเชื่อมโยงหน้าบ้านและหลังบ้านด้วย Fetch API
+    async function callAPI(action, payload = {}) {
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          body: JSON.stringify({ action: action, ...payload }) // เลี่ยง CORS ด้วย Text Payload
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message);
+        return result.data;
+      } catch (error) {
+        throw error;
+      }
+    }
+
+    // ฟังก์ชันจดจำฉันไว้ในระบบ
+    window.addEventListener('DOMContentLoaded', () => {
+        const savedId = localStorage.getItem('savedEmpId');
+        if (savedId) {
+            document.getElementById('empId').value = savedId;
+            document.getElementById('rememberMe').checked = true;
+        }
+    });
+
+    document.addEventListener('input', function(e) {
+        if(e.target.hasAttribute('required')) {
+            e.target.classList.remove('border-red-500', 'ring-2', 'ring-red-200');
+            const err = e.target.nextElementSibling; if(err && err.classList.contains('err-msg')) err.remove();
+        }
+    });
+
+    document.addEventListener('change', function(e) {
+        if(e.target.hasAttribute('required') || e.target.type === 'radio' || e.target.type === 'file') {
+            let target = e.target;
+            if(e.target.type === 'radio') target = e.target.closest('.flex.gap-4') || e.target.parentElement;
+            target.classList.remove('border-red-500', 'ring-2', 'ring-red-200');
+            const err = target.nextElementSibling; if(err && err.classList.contains('err-msg')) err.remove();
+        }
+    });
+
+    document.addEventListener('click', function(event) {
+        const isClickInsideDept = event.target.closest('#filterDeptDropdown') || event.target.closest('button[onclick="toggleDropdown(\'filterDeptDropdown\')"]');
+        const isClickInsideStatus = event.target.closest('#filterStatusDropdown') || event.target.closest('button[onclick="toggleDropdown(\'filterStatusDropdown\')"]');
+        
+        if (!isClickInsideDept) { const d = document.getElementById('filterDeptDropdown'); if(d) d.classList.add('hidden'); }
+        if (!isClickInsideStatus) { const s = document.getElementById('filterStatusDropdown'); if(s) s.classList.add('hidden'); }
+    });
+
+    function getDirectImageUrl(url) {
+        if (!url || String(url).trim() === "") return '';
+        if (String(url).toLowerCase().includes("appsheet.com")) return url;
+        const match = String(url).match(/[-\w]{25,}/);
+        if (match) return 'https://drive.google.com/thumbnail?id=' + match[0] + '&sz=w800';
+        return url;
+    }
+
+    function toggleLoader(show) {
+      const loader = document.getElementById('loader');
+      if (show) loader.classList.remove('hidden'); else loader.classList.add('hidden');
+    }
+
+    function extractMonthYear(dateString) {
+      if (!dateString) return null;
+      let d = new Date(dateString);
+      if (isNaN(d.getTime())) { const parts = String(dateString).split(/[-/]/); if (parts.length === 3) d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`); }
+      if (isNaN(d.getTime())) return null; return { month: String(d.getMonth() + 1).padStart(2, '0'), year: String(d.getFullYear()) };
+    }
+
+    function fDate(dateString) {
+      if (!dateString) return '-';
+      let d = new Date(dateString);
+      if (isNaN(d.getTime())) { const parts = String(dateString).split(/[-/]/); if (parts.length === 3) d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`); }
+      if (isNaN(d.getTime())) return dateString;
+      const day = String(d.getDate()).padStart(2, '0'); const month = String(d.getMonth() + 1).padStart(2, '0');
+      return `${day}-${month}-${d.getFullYear()}`; 
+    }
+
+    function parseDateForInput(dateString) {
+      if (!dateString) return '';
+      let d = new Date(dateString);
+      if (isNaN(d.getTime())) { const parts = String(dateString).split(/[-/]/); if (parts.length === 3) d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`); }
+      if (isNaN(d.getTime())) return '';
+      const day = String(d.getDate()).padStart(2, '0'); const month = String(d.getMonth() + 1).padStart(2, '0');
+      return `${d.getFullYear()}-${month}-${day}`; 
+    }
+
+    function toggleMoreMenu() {
+      const menu = document.getElementById('moreMenuMobile');
+      if (menu.classList.contains('hidden')) {
+        menu.classList.remove('hidden'); menu.classList.add('flex'); setTimeout(() => menu.children[0].classList.replace('-translate-x-full', 'translate-x-0'), 10);
+      } else {
+        menu.children[0].classList.replace('translate-x-0', '-translate-x-full'); setTimeout(() => { menu.classList.add('hidden'); menu.classList.remove('flex'); }, 300);
+      }
+    }
+
+    function toggleDropdown(id) {
+        const el = document.getElementById(id);
+        if (id !== 'filterDeptDropdown') document.getElementById('filterDeptDropdown').classList.add('hidden');
+        if (id !== 'filterStatusDropdown') document.getElementById('filterStatusDropdown').classList.add('hidden');
+        el.classList.toggle('hidden');
+    }
+
+    function updateDropdownLabel(checkboxClass, labelId) {
+        const checked = Array.from(document.querySelectorAll('.' + checkboxClass + ':checked')).map(cb => cb.value);
+        const label = document.getElementById(labelId);
+        if (checked.length === 0) label.innerText = 'ทั้งหมด'; else if (checked.length <= 2) label.innerText = checked.join(', '); else label.innerText = `เลือกแล้ว ${checked.length} รายการ`;
+    }
+
+    function getSeverityBadge(severity) {
+      if (severity === 'RED') return '<span class="bg-red-100 text-red-700 px-2 py-1 rounded-md text-xs font-bold border border-red-200">🔴 RED</span>';
+      if (severity === 'YELLOW') return '<span class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-md text-xs font-bold border border-yellow-200">🟡 YELLOW</span>';
+      return '<span class="bg-green-100 text-green-700 px-2 py-1 rounded-md text-xs font-bold border border-green-200">🟢 GREEN</span>';
+    }
+
+    function getStatusBadge(status) {
+      status = String(status).trim();
+      if (status === 'รอตรวจสอบ') return '<span class="bg-blue-100 text-blue-700 px-2 py-1 rounded-md text-xs font-bold border border-blue-200"><i class="fas fa-clock"></i> รอตรวจสอบ</span>';
+      if (status === 'รอผู้ที่เกี่ยวข้องแก้ไข') return '<span class="bg-orange-100 text-orange-700 px-2 py-1 rounded-md text-xs font-bold border border-orange-200"><i class="fas fa-tools"></i> รอแก้ไข</span>';
+      if (status === 'แก้ไขแล้ว') return '<span class="bg-green-100 text-green-700 px-2 py-1 rounded-md text-xs font-bold border border-green-200"><i class="fas fa-check"></i> แก้ไขแล้ว</span>';
+      if (status === 'ปฏิเสธรับเข้าระบบ') return '<span class="bg-red-100 text-red-700 px-2 py-1 rounded-md text-xs font-bold border border-red-200"><i class="fas fa-times"></i> ปฏิเสธ</span>';
+      return `<span class="bg-gray-100 text-gray-700 px-2 py-1 rounded-md text-xs font-bold border border-gray-200">${status}</span>`;
+    }
+
+    function toggleAccordion(contentId, iconId) {
+        const content = document.getElementById(contentId); const icon = document.getElementById(iconId);
+        if (content.classList.contains('hidden')) { content.classList.remove('hidden'); icon.classList.add('rotate-180'); } 
+        else { content.classList.add('hidden'); icon.classList.remove('rotate-180'); }
+    }
+
+    function nav(id) {
+      currentSection = id;
+      ['dashboard', 'report', 'my', 'dept', 'admin', 'pendingFix', 'allReports', 'person-summary'].forEach(s => { const el = document.getElementById('sec-' + s); if (el) el.classList.add('hidden'); });
+      document.getElementById('sec-' + id).classList.remove('hidden');
+
+      ['dashboard', 'report', 'my', 'dept', 'admin', 'pendingFix', 'allReports'].forEach(s => { const btn = document.getElementById('btn-m-' + s); if (btn) { btn.classList.remove('text-blue-600'); btn.classList.add('text-gray-400'); } });
+      const activeBtn = document.getElementById('btn-m-' + id); if (activeBtn) { activeBtn.classList.remove('text-gray-400'); activeBtn.classList.add('text-blue-600'); }
+
+      const rBtn = document.getElementById('refreshBtn');
+      if (id === 'report' || id === 'person-summary') rBtn.classList.add('hidden'); else rBtn.classList.remove('hidden');
+      if(id !== 'person-summary') refreshData(false);
+    }
+
+    function refreshData(showSpin = true) {
+      if (showSpin) toggleLoader(true);
+      if (currentSection === 'dashboard') loadDashboard(showSpin); else if (currentSection === 'my') loadMyReports(showSpin); else if (currentSection === 'dept') loadDeptTasks(showSpin); else if (currentSection === 'admin') loadAdminReports(showSpin); else if (currentSection === 'pendingFix') loadPendingFix(showSpin); else if (currentSection === 'allReports') loadAllReports(showSpin); else if (showSpin) toggleLoader(false);
+    }
+
+    async function doLogin() {
+      const id = document.getElementById('empId').value.trim();
+      if (!id) return Swal.fire('แจ้งเตือน', 'กรุณากรอกรหัสพนักงาน', 'warning');
+      
+      const loginBtn = document.querySelector('button[onclick="doLogin()"]');
+      const originalText = loginBtn.innerHTML;
+      loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังเข้าสู่ระบบ...';
+      loginBtn.disabled = true;
+      
+      try {
+          const res = await callAPI('login', { empId: id });
+          user = res;
+          
+          if (document.getElementById('rememberMe').checked) { localStorage.setItem('savedEmpId', id); } 
+          else { localStorage.removeItem('savedEmpId'); }
+
+          Swal.fire({ icon: 'success', title: 'ยินดีต้อนรับ', text: user.name, timer: 1500, showConfirmButton: false });
+
+          document.getElementById('loginPage').classList.add('hidden');
+          document.getElementById('app').classList.remove('hidden');
+          document.getElementById('refreshBtn').classList.remove('hidden');
+
+          document.getElementById('userDisplayPC').innerHTML = `<div class="font-bold text-lg">${user.name}</div><div class="text-sm mt-1">สิทธิ์: ${user.role.toUpperCase()}</div><div class="text-[10px] mt-1 break-words opacity-80">ส่วนงาน: ${user.dept}</div>`;
+          document.getElementById('userDisplayMobile').innerHTML = `<div class="font-bold text-white text-base">${user.name}</div><div class="text-sm text-blue-200 mt-1">สิทธิ์: ${user.role.toUpperCase()}</div><div class="text-[10px] text-blue-100 mt-1 break-words">ส่วนงาน: ${user.dept}</div>`;
+
+          if (user.role === 'admin' || user.role === 'gm') {
+            document.querySelectorAll('.role-manager').forEach(el => el.classList.remove('hidden')); document.querySelectorAll('.role-user').forEach(el => el.classList.add('hidden'));
+          } else {
+            document.querySelectorAll('.role-manager').forEach(el => el.classList.add('hidden')); document.querySelectorAll('.role-user').forEach(el => el.classList.remove('hidden'));
+          }
+
+          document.getElementById('f_date_input').valueAsDate = new Date();
+          const currentYear = new Date().getFullYear().toString(); const dashYear = document.getElementById('dashYear');
+          if ([...dashYear.options].some(opt => opt.value === currentYear)) dashYear.value = currentYear;
+          const psYear = document.getElementById('personSummaryYear'); if (psYear && [...psYear.options].some(opt => opt.value === currentYear)) psYear.value = currentYear;
+          
+          const depts = await callAPI('getDepartments');
+          departmentList = depts;
+          
+          refreshData(false); nav('dashboard'); 
+
+      } catch (err) {
+          Swal.fire('ข้อผิดพลาด', err.message, 'error');
+      } finally {
+          loginBtn.innerHTML = originalText; loginBtn.disabled = false;
+      }
+    }
+
+    function logout() {
+      user = null;
+      document.getElementById('app').classList.add('hidden'); document.getElementById('loginPage').classList.remove('hidden');
+      if(!localStorage.getItem('savedEmpId')) document.getElementById('empId').value = '';
+    }
+
+    function handleImage(input, previewId, fieldKey) {
+        input.classList.remove('border-red-500', 'ring-2', 'ring-red-200');
+        let err = input.nextElementSibling; if (err && err.classList.contains('err-msg')) err.remove();
+        const preview = document.getElementById(previewId);
+        if (!input.files || !input.files[0]) { preview.classList.add('hidden'); delete imagePayloads[fieldKey]; return; }
+        const file = input.files[0];
+        if (file.size > 5 * 1024 * 1024) { Swal.fire('ขนาดไฟล์เกิน', 'กรุณาอัปโหลดรูปภาพขนาดไม่เกิน 5 MB', 'warning'); input.value = ''; preview.classList.add('hidden'); delete imagePayloads[fieldKey]; return; }
+        const imgUrl = URL.createObjectURL(file); const img = new Image();
+        img.onload = function() {
+            try {
+                const canvas = document.createElement('canvas'); let w = img.width; let h = img.height; const MAX = 800; 
+                if (w > h && w > MAX) { h *= MAX / w; w = MAX; } else if (h > MAX) { w *= MAX / h; h = MAX; }
+                canvas.width = w; canvas.height = h; const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, w, h);
+                const compDataUrl = canvas.toDataURL('image/jpeg', 0.6); preview.src = compDataUrl; preview.classList.remove('hidden');
+                imagePayloads[fieldKey] = { data: compDataUrl.split(',')[1], mimeType: 'image/jpeg', name: file.name.replace(/\.[^/.]+$/, "") + ".jpg" }; URL.revokeObjectURL(imgUrl);
+            } catch (err) { fallbackToFileReader(); }
+        };
+        img.onerror = function() { fallbackToFileReader(); }; img.src = imgUrl;
+
+        function fallbackToFileReader() {
+            const reader = new FileReader();
+            reader.onload = function(e) { const rawDataUrl = e.target.result; preview.src = rawDataUrl; preview.classList.remove('hidden'); imagePayloads[fieldKey] = { data: rawDataUrl.split(',')[1], mimeType: file.type || 'image/jpeg', name: file.name || 'image.jpg' }; URL.revokeObjectURL(imgUrl); };
+            reader.onerror = function() { Swal.fire({ title: 'บราวเซอร์ปิดกั้นไฟล์', icon: 'error' }); input.value = ''; preview.classList.add('hidden'); delete imagePayloads[fieldKey]; URL.revokeObjectURL(imgUrl); };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function toggleFixFields(mode) {
+      const isFixed = document.querySelector(`input[name="isFixed"]:checked`)?.value || document.getElementById(`e_isFixed`)?.value;
+      const fields = document.getElementById(`fixFields_${mode}`);
+      let reqElements = [ document.getElementById(`fixMethod_${mode}`), document.getElementById(`fixDate_${mode}`) ];
+      if (mode === 'new') reqElements.push(document.getElementById(`fixImg1_${mode}`));
+
+      if (isFixed === 'แก้ไขแล้ว') {
+        fields.classList.remove('hidden'); reqElements.forEach(el => { if (el) el.required = true; });
+        if (mode === 'new' && !document.getElementById('fixDate_new').value) document.getElementById('fixDate_new').valueAsDate = new Date();
+      } else {
+        fields.classList.add('hidden'); reqElements.forEach(el => { if (el) { el.required = false; el.classList.remove('border-red-500', 'ring-2', 'ring-red-200'); const err = el.nextElementSibling; if (err && err.classList.contains('err-msg')) err.remove(); } });
+      }
+    }
+
+    function validateForm(form) {
+        form.querySelectorAll('.err-msg').forEach(el => el.remove()); form.querySelectorAll('.border-red-500').forEach(el => el.classList.remove('border-red-500', 'ring-2', 'ring-red-200'));
+        let isValid = true; let firstInvalid = null; let validatedRadios = {}; const reqElements = form.querySelectorAll('[required]');
+        
+        reqElements.forEach(el => {
+            let isElValid = true; let targetEl = el;
+            if (el.type === 'radio') {
+                if (validatedRadios[el.name]) return; validatedRadios[el.name] = true;
+                const checked = form.querySelector(`input[name="${el.name}"]:checked`); if (!checked) { isElValid = false; targetEl = el.closest('.flex.gap-4') || el.parentElement; }
+            } else if (el.tagName === 'SELECT') { if (!el.value || el.value === "") isElValid = false; } else if (el.type === 'file') { if (!el.files || el.files.length === 0) isElValid = false; } else { if (!el.value.trim()) isElValid = false; }
+
+            if (!isElValid) {
+                isValid = false; targetEl.classList.add('border-red-500', 'ring-2', 'ring-red-200');
+                if (el.type === 'radio' && targetEl.classList.contains('flex')) targetEl.classList.add('rounded-lg', 'p-2');
+                let errHtml = '<div class="err-msg text-red-500 text-sm mt-1 font-bold"><i class="fas fa-exclamation-circle"></i> จำเป็นต้องใส่ข้อมูล</div>';
+                if(!targetEl.nextElementSibling || !targetEl.nextElementSibling.classList.contains('err-msg')) targetEl.insertAdjacentHTML('afterend', errHtml); if (!firstInvalid) firstInvalid = targetEl;
+            }
+        });
+        if (firstInvalid) firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' }); return isValid;
+    }
+
+    async function handleSave(e, mode) {
+      e.preventDefault(); if (!validateForm(e.target)) return;
+      toggleLoader(true); const fd = new FormData(e.target); const obj = Object.fromEntries(fd);
+      if (mode === 'new') { obj.empId = user.empId; obj.empName = user.name; obj.dept = user.dept.split(',')[0].trim(); }
+
+      try {
+        const files = { main: mode === 'new' ? imagePayloads['main_new'] : imagePayloads['main_edit'], fix1: mode === 'new' ? imagePayloads['fix1_new'] : imagePayloads['fix1_edit'], fix2: mode === 'new' ? imagePayloads['fix2_new'] : imagePayloads['fix2_edit'] };
+        if (mode === 'new') {
+            await callAPI('saveReport', { formData: obj, files: files });
+            toggleLoader(false); Swal.fire('สำเร็จ!', 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
+            e.target.reset(); document.querySelectorAll('input[name="isFixed"]').forEach(el => el.checked = false); toggleFixFields('new');
+            document.getElementById('f_date_input').valueAsDate = new Date(); document.querySelectorAll('img[id^="preview"], #imgPreview').forEach(img => { if (img) img.classList.add('hidden'); });
+            imagePayloads = {}; nav('my'); refreshData(false);
+        } else {
+            await callAPI('updateReportByAdmin', { formData: obj, files: files });
+            toggleLoader(false); Swal.fire('สำเร็จ!', 'บันทึกการแก้ไขเรียบร้อยแล้ว', 'success');
+            closeEditModal(); refreshData(true); 
+        }
+      } catch (err) { toggleLoader(false); Swal.fire('เกิดข้อผิดพลาด', err.message || 'โปรดลองส่งใหม่อีกครั้ง', 'error'); }
+    }
+
+    function renderDashboard() {
+      const selMonth = document.getElementById('dashMonth').value; const selYear = document.getElementById('dashYear').value;
+      let filteredData = reportCache.filter(r => { let dy = extractMonthYear(r[1]); if(!dy) return true; return (selMonth === 'all' || dy.month === selMonth) && (selYear === 'all' || dy.year === selYear); });
+      document.getElementById('stat-total').innerText = filteredData.length;
+
+      let deptStats = {}; filteredData.forEach(r => { let tDept = String(r[15]).trim(); let status = String(r[2]).trim(); if(!tDept) return; if(!deptStats[tDept]) deptStats[tDept] = { fixed: 0, pending: 0 }; if(status === 'แก้ไขแล้ว') deptStats[tDept].fixed++; if(status === 'รอผู้ที่เกี่ยวข้องแก้ไข') deptStats[tDept].pending++; });
+      const barLabels = Object.keys(deptStats); const barFixed = barLabels.map(k => deptStats[k].fixed); const barPending = barLabels.map(k => deptStats[k].pending);
+
+      if(barChart) barChart.destroy();
+      barChart = new Chart(document.getElementById('chartBar'), { type: 'bar', data: { labels: barLabels.length ? barLabels : ['ไม่มีข้อมูล'], datasets: [ { label: 'รอผู้ที่เกี่ยวข้องแก้ไข', data: barLabels.length ? barPending : [0], backgroundColor: '#f97316' }, { label: 'แก้ไขแล้ว', data: barLabels.length ? barFixed : [0], backgroundColor: '#22c55e' } ] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true, ticks: { maxRotation: 90, minRotation: 90 } }, y: { stacked: true, beginAtZero: true } }, plugins: { legend: { position: 'bottom' }, datalabels: { color: '#ffffff', font: { weight: 'bold' }, formatter: (val) => val > 0 ? val : '' } } } });
+
+      const nm = filteredData.filter(r => String(r[7]).trim() === 'Near-miss').length; const hp = filteredData.filter(r => String(r[7]).trim() === 'Hazard Point').length;
+      if (doughnutChart) doughnutChart.destroy();
+      doughnutChart = new Chart(document.getElementById('chartDoughnut'), { type: 'doughnut', data: { labels: ['Near-miss', 'Hazard Point'], datasets: [{ data: [nm, hp], backgroundColor: ['#ef4444', '#eab308'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'bottom' }, datalabels: { color: (ctx) => ctx.chart.data.labels[ctx.dataIndex] === 'Hazard Point' ? '#000000' : '#ffffff', font: { weight: 'bold', size: 14 }, formatter: (val, ctx) => { let sum = 0; ctx.chart.data.datasets[0].data.forEach(d => sum += d); if(sum === 0 || val === 0) return ''; return (val * 100 / sum).toFixed(1) + '%'; } } } } });
+
+      let yearStats = {}; filteredData.forEach(r => { let dy = extractMonthYear(r[1]); let y = dy && dy.year ? dy.year : 'ไม่ระบุ'; let sev = String(r[8]).trim(); if (!yearStats[y]) yearStats[y] = { GREEN: 0, YELLOW: 0, RED: 0 }; if (yearStats[y][sev] !== undefined) yearStats[y][sev]++; });
+      const syLabels = Object.keys(yearStats).sort(); const dG = syLabels.map(y => yearStats[y].GREEN); const dY = syLabels.map(y => yearStats[y].YELLOW); const dR = syLabels.map(y => yearStats[y].RED);
+      if(severityChart) severityChart.destroy();
+      severityChart = new Chart(document.getElementById('chartSeverityYear'), { type: 'bar', data: { labels: syLabels.length ? syLabels : ['ไม่มีข้อมูล'], datasets: [ { label: 'GREEN', data: syLabels.length ? dG : [0], backgroundColor: '#22c55e' }, { label: 'YELLOW', data: syLabels.length ? dY : [0], backgroundColor: '#eab308' }, { label: 'RED', data: syLabels.length ? dR : [0], backgroundColor: '#ef4444' } ] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, datalabels: { color: (ctx) => ctx.dataset.label === 'YELLOW' ? '#000000' : '#ffffff', font: { weight: 'bold' }, formatter: (val) => val > 0 ? val : '' } } } });
+    }
+
+    async function loadDashboard(hideLoaderAfter = true) {
+      try {
+        const data = await callAPI('getReportData');
+        reportCache = data || []; renderDashboard();
+      } catch(e) { console.error(e); }
+      if (hideLoaderAfter) toggleLoader(false);
+    }
+
+    function openPersonSummary() {
+      nav('person-summary'); const currentYear = new Date().getFullYear().toString(); const psYear = document.getElementById('personSummaryYear');
+      if (!psYear.value || psYear.value === "") { if ([...psYear.options].some(opt => opt.value === currentYear)) psYear.value = currentYear; }
+      renderPersonSummary();
+    }
+
+    function renderPersonSummary() {
+      let userDepts = user.dept.split(",").map(d => d.trim()).filter(d => d); let summary = {}; const selYear = document.getElementById('personSummaryYear').value;
+      let filteredData = reportCache.filter(r => { let dy = extractMonthYear(r[1]); if(!dy) return false; return dy.year === selYear; });
+
+      filteredData.forEach(r => { let rStatus = String(r[2]).trim(); let rDept = String(r[5]).trim(); let rName = String(r[4]).trim(); let rQ = String(r[16]).trim(); if(userDepts.includes(rDept) && (rStatus === 'แก้ไขแล้ว' || rStatus === 'รอผู้ที่เกี่ยวข้องแก้ไข')) { if(!summary[rDept]) summary[rDept] = {}; if(!summary[rDept][rName]) summary[rDept][rName] = { total: 0, 1: 0, 2: 0, 3: 0, 4: 0 }; summary[rDept][rName].total++; let qMatch = rQ.match(/[1-4]/); if(qMatch) summary[rDept][rName][qMatch[0]]++; } });
+
+      const tbody = document.getElementById('personSummaryTable'); let html = ''; const depts = Object.keys(summary).sort();
+      if(depts.length === 0) { html = '<tr><td colspan="7" class="p-8 text-center text-gray-500">ไม่พบข้อมูลผู้รายงานในส่วนงานของคุณในปีที่เลือก</td></tr>'; } 
+      else { depts.forEach(dept => { const names = Object.keys(summary[dept]).sort(); names.forEach((name, idx) => { let st = summary[dept][name]; html += `<tr class="hover:bg-blue-50 transition">`; if(idx === 0) html += `<td class="p-4 font-bold text-indigo-900 bg-indigo-50 border-b border-r border-indigo-100 align-middle" rowspan="${names.length}">${dept}</td>`; html += `<td class="p-4 border-b border-gray-200 border-r">${name}</td><td class="p-4 border-b border-gray-200 border-r text-center font-bold text-indigo-700 bg-indigo-50/30">${st.total}</td><td class="p-4 border-b border-gray-200 text-center">${st['1'] || '-'}</td><td class="p-4 border-b border-gray-200 text-center">${st['2'] || '-'}</td><td class="p-4 border-b border-gray-200 text-center">${st['3'] || '-'}</td><td class="p-4 border-b border-gray-200 text-center">${st['4'] || '-'}</td></tr>`; }); }); }
+      tbody.innerHTML = html;
+    }
+
+    function resubmitReport(id) {
+      Swal.fire({ title: 'ยืนยันการขอส่งใหม่', text: 'คุณต้องการส่งรายงานนี้ให้ Admin ตรวจสอบอีกครั้งใช่หรือไม่?', icon: 'question', showCancelButton: true, confirmButtonColor: '#3B82F6', confirmButtonText: 'ใช่, ส่งใหม่', cancelButtonText: 'ยกเลิก'
+      }).then(async (result) => {
+        if (result.isConfirmed) {
+          toggleLoader(true);
+          try {
+             await callAPI('updateStatus', { reportId: id, status: 'รอตรวจสอบ', note: '', targetDept: '' });
+             toggleLoader(false); Swal.fire('สำเร็จ', 'ส่งรายงานเพื่อตรวจสอบใหม่เรียบร้อยแล้ว', 'success'); refreshData(true);
+          } catch(err) { toggleLoader(false); Swal.fire('ข้อผิดพลาด', err.message, 'error'); }
+        }
+      });
+    }
+
+    function showDetails(id) {
+      const r = reportCache.find(x => x[0] === id); if (!r) return;
+      let rejectedMsg = ''; if (r[2] === 'ปฏิเสธรับเข้าระบบ' && r[14]) { rejectedMsg = `<div class="bg-red-50 text-red-700 p-4 rounded-xl border border-red-300 mb-4 shadow-sm"><i class="fas fa-exclamation-triangle text-lg mr-2"></i><strong class="text-lg">ถูกปฏิเสธเนื่องจาก:</strong><div class="mt-1 ml-6 text-sm font-medium">${r[14]}</div><div class="mt-4 text-right"><button onclick="resubmitReport('${r[0]}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow transition"><i class="fas fa-paper-plane mr-1"></i> ขอส่งใหม่</button></div></div>`; }
+      let fixHtml = ''; if (r[13] === 'แก้ไขแล้ว') { let fixImg1 = getDirectImageUrl(r[18]); let fixImg2 = getDirectImageUrl(r[19]); let f1 = fixImg1 ? '<a href="' + r[18] + '" target="_blank" class="flex-1"><img src="' + fixImg1 + '" referrerpolicy="no-referrer" class="w-full h-32 object-cover rounded-lg border shadow-sm cursor-pointer hover:opacity-80 bg-white" alt="แก้ไข1"></a>' : ''; let f2 = fixImg2 ? '<a href="' + r[19] + '" target="_blank" class="flex-1"><img src="' + fixImg2 + '" referrerpolicy="no-referrer" class="w-full h-32 object-cover rounded-lg border shadow-sm cursor-pointer hover:opacity-80 bg-white" alt="แก้ไข2"></a>' : ''; fixHtml = `<div class="mt-4 p-4 bg-green-50 rounded-xl border border-green-200"><p class="font-bold text-green-800 mb-2"><i class="fas fa-tools"></i> ข้อมูลการแก้ไขเบื้องต้น</p><p class="text-gray-700 text-sm mb-1"><strong>วิธีแก้:</strong> ${r[20]}</p><p class="text-gray-700 text-sm mb-3"><strong>วันที่แก้:</strong> ${fDate(r[21])}</p><div class="flex gap-2">${f1}${f2}</div></div>`; }
+      let mainImg = getDirectImageUrl(r[12]); let mImgHtml = mainImg ? '<a href="' + r[12] + '" target="_blank"><img src="' + mainImg + '" referrerpolicy="no-referrer" class="w-full h-48 object-cover rounded-xl mt-3 border shadow-sm cursor-pointer hover:opacity-90" alt="รูปหลัก"></a>' : '';
+      Swal.fire({ title: '<span class="text-xl font-bold text-gray-800 border-b pb-2 block text-left">รายละเอียดรายงาน</span>', html: `<div class="text-left mt-4 text-sm space-y-3">${rejectedMsg}<div class="grid grid-cols-2 gap-3"><div class="bg-gray-50 p-3 rounded-lg border border-gray-100"><p class="text-gray-500 text-xs mb-1">รหัสรายงาน</p><p class="font-medium">${r[0]}</p></div><div class="bg-gray-50 p-3 rounded-lg border border-gray-100"><p class="text-gray-500 text-xs mb-1">วันที่พบ</p><p class="font-medium">${fDate(r[1])}</p></div></div><div class="bg-gray-50 p-3 rounded-lg border border-gray-100"><p class="text-gray-500 text-xs mb-1">สถานะ</p><div>${getStatusBadge(r[2])}</div></div><div class="bg-gray-50 p-3 rounded-lg border border-gray-100"><p class="text-gray-500 text-xs mb-1">หัวข้อ</p><p class="font-medium text-blue-700">${r[7]}</p></div><div class="bg-gray-50 p-3 rounded-lg border border-gray-100"><p class="text-gray-500 text-xs mb-1">ความรุนแรง</p><div>${getSeverityBadge(r[8])}</div></div><div class="bg-gray-50 p-3 rounded-lg border border-gray-100"><p class="text-gray-500 text-xs mb-1">พื้นที่พบ</p><p class="font-medium">${r[6]}</p></div><div class="bg-blue-50 p-4 rounded-xl border border-blue-100 mt-2"><p class="font-bold text-blue-800 mb-1"><i class="fas fa-info-circle"></i> รายละเอียด</p><p class="text-gray-700 leading-relaxed">${r[10]}</p></div><div class="bg-blue-50 p-4 rounded-xl border border-blue-100 mt-2"><p class="font-bold text-blue-800 mb-1"><i class="fas fa-hands-helping"></i> การมีส่วนร่วม</p><p class="text-gray-700 leading-relaxed">${r[11] || '-'}</p></div>${mImgHtml}${fixHtml}</div>`, showCloseButton: true, showConfirmButton: false, width: '100%', customClass: { popup: 'rounded-2xl max-w-md' } });
+    }
+
+    async function loadMyReports(hideLoaderAfter = true) {
+      try {
+        const data = await callAPI('getReportData');
+        reportCache = data || []; const myData = reportCache.filter(r => String(r[3]).trim() === String(user.empId).trim()).sort((a, b) => (parseInt(String(b[0]).replace(/\D/g, '')) || 0) - (parseInt(String(a[0]).replace(/\D/g, '')) || 0));
+        const tbody = document.getElementById('myTable'); const empty = document.getElementById('myEmpty');
+        if (myData.length === 0) { tbody.innerHTML = ''; empty.classList.remove('hidden'); } else { empty.classList.add('hidden'); tbody.innerHTML = myData.map(r => { let imgUrl = getDirectImageUrl(r[12]); let pImg = imgUrl ? '<img src="' + imgUrl + '" referrerpolicy="no-referrer" class="w-12 h-12 object-cover rounded shadow-sm mx-auto border border-gray-200" alt="รูป">' : '-'; return `<tr class="hover:bg-blue-50 transition cursor-pointer" onclick="showDetails('${r[0]}')"><td class="p-4">${fDate(r[1])}</td><td class="p-4 text-center">${pImg}</td><td class="p-4 text-center"><span class="bg-gray-100 px-2 py-1 rounded-md font-medium text-gray-600">Q${r[16]}</span></td><td class="p-4">${getStatusBadge(r[2])}</td><td class="p-4 text-center text-blue-500 hover:text-blue-700 font-bold"><i class="fas fa-search"></i></td></tr>` }).join(''); }
+      } catch(e) { console.error(e); }
+      if (hideLoaderAfter) toggleLoader(false);
+    }
+
+    async function loadDeptTasks(hideLoaderAfter = true) {
+      const userDepts = user.dept.split(",").map(d => d.trim()).filter(d => d !== "");
+      document.getElementById('displayDeptTag').innerHTML = `ส่วนงานของคุณ: <strong>${userDepts.join(" , ")}</strong>`;
+      try {
+        const data = await callAPI('getReportData');
+        reportCache = data || []; const tasks = reportCache.filter(r => String(r[2]).trim() === 'รอผู้ที่เกี่ยวข้องแก้ไข' && userDepts.includes(String(r[15]).trim()));
+        const container = document.getElementById('deptList'); const empty = document.getElementById('deptEmpty');
+        if (tasks.length === 0) { container.innerHTML = ''; empty.classList.remove('hidden'); } else { empty.classList.add('hidden'); container.innerHTML = tasks.map(r => { let imgUrl = getDirectImageUrl(r[12]); let cImg = imgUrl ? '<img src="' + imgUrl + '" referrerpolicy="no-referrer" class="w-full h-32 object-cover rounded-lg mb-4 border border-gray-200" alt="รูป">' : ''; return `<div onclick="showDetails('${r[0]}')" class="bg-white p-5 rounded-xl shadow-sm border border-l-4 border-l-orange-500 hover:shadow-md transition cursor-pointer"><div class="flex justify-between items-start mb-3">${getSeverityBadge(r[8])}<span class="text-xs text-gray-500"><i class="far fa-calendar-alt"></i> ${fDate(r[1])}</span></div><p class="font-bold text-gray-800 text-lg line-clamp-1 mb-1">${r[7]}</p><p class="text-sm text-gray-600 mb-3"><i class="fas fa-map-marker-alt text-red-500"></i> ${r[6]}</p>${cImg}<div class="flex justify-end items-center text-xs text-gray-500"><button onclick="event.stopPropagation(); openDeptEditModal('${r[0]}')" class="bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-200 transition font-medium shadow-sm"><i class="fas fa-tools"></i> ส่งงานแก้ไข</button></div></div>` }).join(''); }
+      } catch(e) { console.error(e); }
+      if (hideLoaderAfter) toggleLoader(false);
+    }
+
+    function openDeptEditModal(id) {
+      const r = reportCache.find(x => x[0] === id); if (!r) return;
+      document.getElementById('d_reportId').value = r[0]; document.getElementById('d_fixMethod').value = r[20] || ''; document.getElementById('d_fixDate').value = parseDateForInput(r[21]);
+      document.getElementById('deptEditModalOverlay').classList.remove('hidden'); document.getElementById('deptEditModalOverlay').classList.add('flex');
+    }
+
+    function closeDeptEditModal() {
+      document.getElementById('deptEditForm').reset(); ['preview_d1', 'preview_d2'].forEach(id => document.getElementById(id).classList.add('hidden')); imagePayloads = {}; document.getElementById('deptEditModalOverlay').classList.add('hidden'); document.getElementById('deptEditModalOverlay').classList.remove('flex');
+    }
+
+    async function handleDeptSave(e) {
+      e.preventDefault(); if (!validateForm(e.target)) return;
+      toggleLoader(true); const fd = new FormData(e.target); const obj = Object.fromEntries(fd);
+      try {
+        const files = { fix1: imagePayloads['fix1_dept'], fix2: imagePayloads['fix2_dept'] };
+        await callAPI('updateDeptTask', { formData: obj, files: files });
+        toggleLoader(false); Swal.fire('สำเร็จ!', 'ส่งข้อมูลการแก้ไขแล้ว รอ Admin ตรวจสอบ', 'success'); closeDeptEditModal(); refreshData(true);
+      } catch (err) { toggleLoader(false); Swal.fire('เกิดข้อผิดพลาดในการประมวลผล', err.message || 'โปรดลองส่งใหม่อีกครั้ง', 'error'); }
+    }
+
+    async function loadAdminReports(hideLoaderAfter = true) {
+      try {
+        const data = await callAPI('getReportData');
+        reportCache = data || []; const list = reportCache.filter(r => String(r[2]).trim() === 'รอตรวจสอบ');
+        const container = document.getElementById('adminList'); const empty = document.getElementById('adminEmpty');
+        if (list.length === 0) { container.innerHTML = ''; empty.classList.remove('hidden'); } else { empty.classList.add('hidden'); container.innerHTML = list.map(r => { const isFixed = String(r[13]).trim() === 'แก้ไขแล้ว'; let actionButtons = ''; if (user.role === 'admin') { if (isFixed) { actionButtons = `<button onclick="approveAdmin('${r[0]}', 'แก้ไขแล้ว', 'อนุมัติ')" class="flex-1 bg-green-500 hover:bg-green-600 text-white p-2.5 rounded-lg text-sm transition font-medium"><i class="fas fa-check-circle"></i> อนุมัติ</button><button onclick="approveAdmin('${r[0]}', 'ปฏิเสธรับเข้าระบบ', 'ปฏิเสธ')" class="flex-1 bg-red-500 hover:bg-red-600 text-white p-2.5 rounded-lg text-sm transition font-medium"><i class="fas fa-times-circle"></i> ปฏิเสธ</button>`; } else { actionButtons = `<button onclick="acceptIntoSystem('${r[0]}')" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white p-2.5 rounded-lg text-sm transition font-medium"><i class="fas fa-arrow-down"></i> รับเข้าระบบ</button><button onclick="approveAdmin('${r[0]}', 'ปฏิเสธรับเข้าระบบ', 'ปฏิเสธ')" class="flex-1 bg-red-500 hover:bg-red-600 text-white p-2.5 rounded-lg text-sm transition font-medium"><i class="fas fa-times-circle"></i> ปฏิเสธ</button>`; } actionButtons = `<div class="flex gap-2">${actionButtons}</div>`; } let imgUrl = getDirectImageUrl(r[12]); let aImg = imgUrl ? '<img src="' + imgUrl + '" referrerpolicy="no-referrer" class="w-full h-32 object-cover rounded-lg mb-4 border border-gray-200" alt="รูป">' : ''; return `<div class="bg-white p-5 rounded-xl shadow-sm border border-l-4 border-l-blue-500 hover:shadow-md transition"><div class="flex justify-between items-start mb-3">${getSeverityBadge(r[8])}<span class="text-xs text-gray-500"><i class="far fa-calendar-alt"></i> ${fDate(r[1])}</span></div><p class="font-bold text-gray-800 text-lg line-clamp-1 mb-1">${r[7]}</p><p class="text-sm text-gray-600 mb-1"><i class="fas fa-user text-blue-500 mr-1"></i> ${r[4]}</p><p class="text-sm text-gray-500 mb-3"><i class="fas fa-building text-blue-400 mr-1"></i> ส่วนงาน: ${r[5]}</p>${aImg}<div class="flex flex-col gap-3"><button onclick="showDetails('${r[0]}')" class="w-full border border-blue-500 text-blue-600 hover:bg-blue-50 p-2 rounded-lg text-sm transition font-medium"><i class="fas fa-eye"></i> ตรวจสอบข้อมูล</button>${actionButtons}</div></div>`; }).join(''); }
+      } catch(e) { console.error(e); }
+      if (hideLoaderAfter) toggleLoader(false);
+    }
+
+    function acceptIntoSystem(id) {
+      let optionsHtml = departmentList.map(d => `<option value="${d}">${d}</option>`).join('');
+      Swal.fire({ title: 'รับเข้าระบบ', html: `<p class="text-sm text-gray-600 mb-2 text-left font-bold">1. เลือกส่วนงานที่รับผิดชอบ (คอลัมน์ P):</p><select id="swal-dept" class="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-blue-400 bg-white mb-4"><option value="" disabled selected>-- เลือกส่วนงาน --</option>${optionsHtml}</select><p class="text-sm text-gray-600 mb-2 text-left font-bold">2. ช่องทางการสื่อสาร:</p><select id="swal-comm" class="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-blue-400 bg-white"><option value="" disabled selected>-- เลือกช่องทาง --</option><option value="Email">Email</option><option value="ไลน์กลุ่ม">ไลน์กลุ่ม</option><option value="สื่อสารส่วนตัว">สื่อสารส่วนตัว</option></select>`, showCancelButton: true, confirmButtonText: 'ส่งงาน', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#3B82F6', preConfirm: () => { const dept = document.getElementById('swal-dept').value; const comm = document.getElementById('swal-comm').value; if (!dept) { Swal.showValidationMessage('กรุณาเลือกส่วนงานก่อนครับ'); return false; } if (!comm) { Swal.showValidationMessage('กรุณาเลือกช่องทางการสื่อสารครับ'); return false; } return { dept: dept, comm: comm }; }
+      }).then(res => { if (res.isConfirmed) processAdmin(id, 'รอผู้ที่เกี่ยวข้องแก้ไข', '', res.value.dept, res.value.comm); });
+    }
+
+    function approveAdmin(id, status, type) {
+      if (type === 'อนุมัติ') {
+        let optionsHtml = departmentList.map(d => `<option value="${d}">${d}</option>`).join('');
+        Swal.fire({ title: 'ยืนยันการอนุมัติ', html: `<p class="text-sm text-gray-600 mb-2 text-left font-bold">ส่วนงานผู้รับผิดชอบการแก้ไข (คอลัมน์ P):</p><select id="swal-dept-approve" class="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-blue-400 bg-white mb-4"><option value="" disabled selected>-- เลือกส่วนงาน --</option>${optionsHtml}</select><p class="text-sm text-gray-500 text-left">*โปรดเลือกส่วนงานเพื่อบันทึกลงในฐานข้อมูล</p>`, icon: 'question', showCancelButton: true, confirmButtonColor: '#10B981', confirmButtonText: 'อนุมัติ', cancelButtonText: 'ยกเลิก', preConfirm: () => { const dept = document.getElementById('swal-dept-approve').value; if (!dept) { Swal.showValidationMessage('กรุณาเลือกส่วนงานผู้รับผิดชอบครับ'); return false; } return dept; }
+        }).then(res => { if (res.isConfirmed) processAdmin(id, status, '', res.value, ''); }); 
+      } else {
+        Swal.fire({ title: 'ปฏิเสธรายการ', text: 'โปรดระบุหมายเหตุ/สาเหตุการปฏิเสธ', input: 'text', showCancelButton: true, confirmButtonColor: '#EF4444', confirmButtonText: 'ยืนยัน', cancelButtonText: 'ยกเลิก', inputValidator: (val) => { if (!val) return 'กรุณาระบุหมายเหตุ' } }).then(res => { if (res.isConfirmed) processAdmin(id, status, res.value, '', ''); });
+      }
+    }
+
+    async function processAdmin(id, status, note, targetDept, commMethod) {
+      toggleLoader(true);
+      try {
+         await callAPI('updateStatus', { reportId: id, status: status, note: note, targetDept: targetDept });
+         toggleLoader(false); Swal.fire('สำเร็จ', 'อัปเดตสถานะเรียบร้อยแล้ว', 'success'); refreshData(true);
+      } catch(err) { toggleLoader(false); Swal.fire('ข้อผิดพลาด', err.message, 'error'); }
+    }
+
+    async function loadPendingFix(hideLoaderAfter = true) {
+      try {
+        const data = await callAPI('getReportData');
+        reportCache = data || []; const list = reportCache.filter(r => String(r[2]).trim() === 'รอผู้ที่เกี่ยวข้องแก้ไข');
+        const container = document.getElementById('pendingFixList'); const empty = document.getElementById('pendingFixEmpty');
+        if (list.length === 0) { container.innerHTML = ''; empty.classList.remove('hidden'); } else { empty.classList.add('hidden'); let grouped = {}; list.forEach(r => { let dept = r[15] || 'ยังไม่ระบุส่วนงาน'; if(!grouped[dept]) grouped[dept] = []; grouped[dept].push(r); }); let html = ''; let deptIndex = 0; for (let dept in grouped) { let count = grouped[dept].length; let accId = 'acc-pending-' + deptIndex; let iconId = 'icon-pending-' + deptIndex; html += `<div class="w-full col-span-full mb-4"><button onclick="toggleAccordion('${accId}', '${iconId}')" class="w-full flex justify-between items-center text-lg font-bold text-gray-800 bg-white hover:bg-gray-50 p-4 rounded-xl border border-gray-200 border-l-4 border-l-orange-500 shadow-sm transition"><span class="flex items-center"><i class="fas fa-building mr-2 text-gray-500"></i>ส่วนงาน: ${dept}</span><span class="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-sm font-bold border border-orange-200 shadow-sm">${count} เรื่อง <i id="${iconId}" class="fas fa-chevron-down ml-2 transition-transform duration-300"></i></span></button><div id="${accId}" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">`; html += grouped[dept].map(r => { let imgUrl = getDirectImageUrl(r[12]); let aImg = imgUrl ? '<img src="' + imgUrl + '" referrerpolicy="no-referrer" class="w-full h-32 object-cover rounded-lg mb-4 border border-gray-200" alt="รูป">' : ''; let editBtn = user.role === 'admin' ? `<button onclick="openEditModal('${r[0]}')" class="flex-1 border border-amber-500 text-amber-600 hover:bg-amber-50 p-2 rounded-lg text-sm transition font-medium shadow-sm"><i class="fas fa-edit"></i> แก้ไข</button>` : ''; return `<div class="bg-white p-5 rounded-xl shadow-sm border border-l-4 border-l-orange-500"><div class="flex justify-between items-start mb-3">${getSeverityBadge(r[8])}<span class="text-xs text-gray-500"><i class="far fa-calendar-alt"></i> ${fDate(r[1])}</span></div><p class="font-bold text-gray-800 text-lg line-clamp-1 mb-1">${r[7]}</p><p class="text-sm text-gray-600 mb-3"><i class="fas fa-map-marker-alt text-red-500"></i> ${r[6]}</p>${aImg}<div class="flex gap-2"><button onclick="showDetails('${r[0]}')" class="flex-1 border border-blue-500 text-blue-600 hover:bg-blue-50 p-2 rounded-lg text-sm transition font-medium shadow-sm"><i class="fas fa-eye"></i> ดูข้อมูล</button>${editBtn}</div></div>`; }).join(''); html += `</div></div>`; deptIndex++; } container.innerHTML = html; }
+      } catch(e) { console.error(e); }
+      if (hideLoaderAfter) toggleLoader(false);
+    }
+
+    async function loadAllReports(hideLoaderAfter = true) {
+      try {
+        const data = await callAPI('getReportData');
+        reportCache = data || []; const deptContainer = document.getElementById('filterDeptContainer');
+        if (deptContainer.children.length === 0) { let depts = [...new Set(reportCache.map(r => String(r[15]).trim() || 'ยังไม่ระบุส่วนงานแก้ไข'))].sort(); deptContainer.innerHTML = depts.map(d => `<label class="flex items-center space-x-2 cursor-pointer hover:bg-gray-100 p-1.5 rounded"><input type="checkbox" value="${d}" class="dept-checkbox w-4 h-4 text-blue-600 rounded border-gray-300" onchange="updateDropdownLabel('dept-checkbox', 'deptDropdownLabel')"><span class="truncate text-sm">${d}</span></label>`).join(''); }
+        renderAllReports();
+      } catch(e) { console.error(e); }
+      if (hideLoaderAfter) toggleLoader(false);
+    }
+
+    function renderAllReports() {
+        const tbody = document.getElementById('allReportsTable'); const startDate = document.getElementById('filterStartDate').value; const endDate = document.getElementById('filterEndDate').value; const selectedDepts = Array.from(document.querySelectorAll('.dept-checkbox:checked')).map(cb => cb.value); const selectedStatuses = Array.from(document.querySelectorAll('.status-checkbox:checked')).map(cb => cb.value);
+
+        let filtered = reportCache.filter(r => { let match = true; let rDateStr = parseDateForInput(r[1]); if (startDate && rDateStr < startDate) match = false; if (endDate && rDateStr > endDate) match = false; let rDept = String(r[15]).trim() || 'ยังไม่ระบุส่วนงานแก้ไข'; if (selectedDepts.length > 0 && !selectedDepts.includes(rDept)) match = false; let rStatus = String(r[2]).trim(); if (selectedStatuses.length > 0 && !selectedStatuses.includes(rStatus)) match = false; return match; });
+
+        if (filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-gray-500 font-medium">ไม่มีข้อมูลรายงานที่ตรงกับตัวกรองของคุณ</td></tr>'; return; }
+        const sorted = [...filtered].sort((a, b) => { const timeA = parseInt(String(a[0]).replace(/\D/g, '')) || 0; const timeB = parseInt(String(b[0]).replace(/\D/g, '')) || 0; return timeB - timeA; });
+        
+        let grouped = {}; sorted.forEach(r => { let dept = r[15] || 'ยังไม่ระบุส่วนงานแก้ไข'; if(!grouped[dept]) grouped[dept] = []; grouped[dept].push(r); });
+        let html = '';
+        for (let dept in grouped) {
+            html += `<tr class="bg-gray-100 border-y border-gray-300"><td colspan="6" class="p-3 font-bold text-blue-900 border-l-4 border-blue-600"><i class="fas fa-building text-blue-700 mr-2"></i>ส่วนงานรับผิดชอบการแก้ไข: ${dept} <span class="ml-2 text-sm text-gray-500 font-medium">(${grouped[dept].length} เรื่อง)</span></td></tr>`;
+            html += grouped[dept].map(r => { let imgUrl = getDirectImageUrl(r[12]); let tImg = imgUrl ? `<a href="${r[12]}" target="_blank"><img src="${imgUrl}" referrerpolicy="no-referrer" class="w-10 h-10 object-cover rounded shadow-sm mx-auto cursor-pointer hover:opacity-80 border border-gray-200" alt="รูป"></a>` : '-'; let editBtn = user.role === 'admin' ? `<button onclick="openEditModal('${r[0]}')" class="text-amber-500 hover:text-amber-700" title="แก้ไขข้อมูลโดย Admin"><i class="fas fa-edit fa-lg"></i></button>` : ''; return `<tr class="hover:bg-blue-50 transition"><td class="p-3 text-sm">${r[0]}</td><td class="p-3 text-sm">${fDate(r[1])}</td><td class="p-3 text-sm">${r[4]}<br><span class="text-xs text-gray-500">${r[5]}</span></td><td class="p-3 text-center text-sm">${tImg}</td><td class="p-3 text-sm">${getStatusBadge(r[2])}</td><td class="p-3 text-center"><button onclick="showDetails('${r[0]}')" class="text-blue-500 hover:text-blue-700 ${user.role === 'admin' ? 'mr-3' : ''}" title="ดูข้อมูล"><i class="fas fa-eye fa-lg"></i></button>${editBtn}</td></tr>`; }).join('');
+        } tbody.innerHTML = html;
+    }
+
+    function resetAllReportsFilters() { document.getElementById('filterStartDate').value = ''; document.getElementById('filterEndDate').value = ''; document.querySelectorAll('.dept-checkbox').forEach(cb => cb.checked = false); document.querySelectorAll('.status-checkbox').forEach(cb => cb.checked = false); updateDropdownLabel('dept-checkbox', 'deptDropdownLabel'); updateDropdownLabel('status-checkbox', 'statusDropdownLabel'); renderAllReports(); }
+
+    function openEditModal(id) { const r = reportCache.find(x => x[0] === id); if (!r) return; document.getElementById('e_reportId').value = r[0]; document.getElementById('e_date').value = parseDateForInput(r[1]); document.getElementById('e_location').value = r[6]; document.getElementById('e_topic').value = r[7]; document.getElementById('e_severity').value = r[8]; document.getElementById('e_type').value = r[9]; document.getElementById('e_desc').value = r[10]; document.getElementById('e_participation').value = r[11]; document.getElementById('e_isFixed').value = r[13]; toggleFixFields('edit'); if (r[13] === 'แก้ไขแล้ว') { document.getElementById('fixMethod_edit').value = r[20]; document.getElementById('fixDate_edit').value = parseDateForInput(r[21]); } document.getElementById('editModalOverlay').classList.remove('hidden'); document.getElementById('editModalOverlay').classList.add('flex'); }
+
+    function closeEditModal() { document.getElementById('editForm').reset(); imagePayloads = {}; document.getElementById('editModalOverlay').classList.add('hidden'); document.getElementById('editModalOverlay').classList.remove('flex'); }
+  </script>
+</body>
+</html>
