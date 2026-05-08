@@ -433,7 +433,7 @@
     // =========================================================
     // นำลิงก์ Web App จาก Google Apps Script มาวางแทนที่ตรงนี้
     // =========================================================
-    const API_URL = "https://script.google.com/macros/s/AKfycbzeOZoVUrqjk8xY9ib0lJisQFyTsKC_BiBLrEKmSpTnswqdQonyILYb6muU6ripn-HJ/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbxNSIn5_jJK3qtTWtSmHUaVfIELMWdSLksl7sdsipgTp6hExEJXx8NbgKDeqR0ujn2C/exec";
 
     Chart.register(ChartDataLabels);
 
@@ -441,16 +441,14 @@
     let doughnutChart = null; let barChart = null; let severityChart = null;
     let imagePayloads = {};
 
-    // ฟังก์ชันเรียกใช้งาน API ไปยัง Apps Script
-async function callAPI(action, ...args) {
-    // นำ URL Exec อันใหม่ที่ได้จากการ Deploy มาใส่ที่นี่ (อย่าลืมตรวจสอบ URL ให้ถูกต้อง)
-    const url = "https://script.google.com/macros/s/AKfycbzeOZoVUrqjk8xY9ib0lJisQFyTsKC_BiBLrEKmSpTnswqdQonyILYb6muU6ripn-HJ/exec"; 
+    async function callAPI(action, ...args) {
+    const url = "https://script.google.com/macros/s/AKfycbxNSIn5_jJK3qtTWtSmHUaVfIELMWdSLksl7sdsipgTp6hExEJXx8NbgKDeqR0ujn2C/exec"; 
     
     try {
         const response = await fetch(url, {
             method: 'POST',
+            // สำคัญ: ห้ามเปลี่ยนกลับไปเป็น application/json
             headers: {
-                // เปลี่ยนจาก application/json เป็น text/plain เพื่อข้ามกฎ CORS Policy
                 'Content-Type': 'text/plain;charset=utf-8' 
             },
             body: JSON.stringify({ action: action, args: args })
@@ -464,6 +462,7 @@ async function callAPI(action, ...args) {
             throw new Error(result.message || "เกิดข้อผิดพลาดจากเซิร์ฟเวอร์");
         }
     } catch (error) {
+        console.error("API Error:", error);
         throw new Error(error.message);
     }
 }
