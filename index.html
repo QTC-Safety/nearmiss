@@ -441,20 +441,32 @@
     let doughnutChart = null; let barChart = null; let severityChart = null;
     let imagePayloads = {};
 
-    // ฟังก์ชันเชื่อมโยงหน้าบ้านและหลังบ้านด้วย Fetch API
-    async function callAPI(action, payload = {}) {
-      try {
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          body: JSON.stringify({ action: action, ...payload }) // เลี่ยง CORS ด้วย Text Payload
+    // ฟังก์ชันเรียกใช้งาน API ไปยัง Apps Script
+async function callAPI(action, ...args) {
+    // นำ URL Exec อันใหม่ที่ได้จากการ Deploy มาใส่ที่นี่ (อย่าลืมตรวจสอบ URL ให้ถูกต้อง)
+    const url = "https://script.google.com/macros/s/AKfycbzeOZoVUrqjk8xY9ib0lJisQFyTsKC_BiBLrEKmSpTnswqdQonyILYb6muU6ripn-HJ/exec"; 
+    
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                // เปลี่ยนจาก application/json เป็น text/plain เพื่อข้ามกฎ CORS Policy
+                'Content-Type': 'text/plain;charset=utf-8' 
+            },
+            body: JSON.stringify({ action: action, args: args })
         });
+        
         const result = await response.json();
-        if (!result.success) throw new Error(result.message);
-        return result.data;
-      } catch (error) {
-        throw error;
-      }
+        
+        if (result.status === 'success') {
+            return result.data;
+        } else {
+            throw new Error(result.message || "เกิดข้อผิดพลาดจากเซิร์ฟเวอร์");
+        }
+    } catch (error) {
+        throw new Error(error.message);
     }
+}
 
     // ฟังก์ชันจดจำฉันไว้ในระบบ
     window.addEventListener('DOMContentLoaded', () => {
